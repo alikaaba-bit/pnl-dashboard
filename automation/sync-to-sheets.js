@@ -180,6 +180,7 @@ async function syncDaily() {
 
   // Fetch shop-level profit
   const profitData = await fetchProfitReport(token, dateStr, dateStr);
+  console.log('Profit API response:', JSON.stringify(profitData).substring(0, 500));
 
   if ((profitData.code === 0 || profitData.code === "200" || profitData.code === 200) && profitData.data) {
     const records = profitData.data.records || [];
@@ -212,6 +213,7 @@ async function syncDaily() {
 
   // Fetch MSKU data
   const mskuData = await fetchMskuReport(token, dateStr, dateStr);
+  console.log('MSKU API response:', JSON.stringify(mskuData).substring(0, 500));
 
   if ((mskuData.code === 0 || mskuData.code === "200" || mskuData.code === 200) && mskuData.data) {
     const records = mskuData.data.list || mskuData.data.records || [];
