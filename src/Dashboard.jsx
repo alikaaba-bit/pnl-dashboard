@@ -131,9 +131,29 @@ const pctColor = (v,good="up") => {
   if(good==="up") return v > 0 ? "#22c55e" : v < 0 ? "#ef4444" : "#64748b";
   return v < 0 ? "#22c55e" : v > 0 ? "#ef4444" : "#64748b";
 };
-const BRAND_COLORS = {"Fomin":"#3b82f6","House of Party":"#f59e0b","Functions Labs":"#8b5cf6","Custom Products":"#6b7280","Rockport Tools":"#ec4899","Soul Mama":"#14b8a6","Roofus Pet":"#ef4444"};
+const BRAND_COLORS = {"Fomin":"#10b981","House of Party":"#f59e0b","Functions Labs":"#8b5cf6","Custom Products":"#6b7280","Rockport Tools":"#ec4899","Soul Mama":"#14b8a6","Roofus Pet":"#f43f5e"};
 
-// ── Compute Enhanced Metrics ────────────────────────────────────────────────
+// ── V2: Budget Targets (Monthly) ────────────────────────────────────────────
+const BUDGETS = {
+  "Fomin": { rev: 280000, gm: 0.20, tacos: 0.12 },
+  "House of Party": { rev: 120000, gm: 0.10, tacos: 0.15 },
+  "Functions Labs": { rev: 15000, gm: 0.15, tacos: 0.18 },
+  "Soul Mama": { rev: 20000, gm: 0.10, tacos: 0.25 },
+  "Roofus Pet": { rev: 15000, gm: 0.15, tacos: 0.20 },
+  "Rockport Tools": { rev: 5000, gm: 0.20, tacos: 0.15 }
+};
+
+// ── V2: Team Ownership ────────────────────────────────────────────────────────
+const OWNERS = {
+  "Fomin": { name: "Team A", avatar: "F" },
+  "House of Party": { name: "Team B", avatar: "H" },
+  "Functions Labs": { name: "Team C", avatar: "L" },
+  "Soul Mama": { name: "Team D", avatar: "S" },
+  "Roofus Pet": { name: "Team D", avatar: "R" },
+  "Rockport Tools": { name: "Team E", avatar: "T" }
+};
+
+// ── Compute Enhanced Metrics (V2 Enhanced) ────────────────────────────────────
 function computeMonth(m) {
   const brands = m.brands.map(b => {
     const totalAd = (b.sp||0)+(b.sb||0)+(b.sd||0);
@@ -148,7 +168,31 @@ function computeMonth(m) {
     const feeRate = b.rev ? totalFees/b.rev : 0;
     const adRate = b.rev ? totalAd/b.rev : 0;
     const cogsRate = b.rev ? (b.cost||0)/b.rev : 0;
-    return {...b, totalAd, totalAdSales, tacos, acos, paidRevPct, organicRevPct, revPerUnit, profitPerUnit, totalFees, feeRate, adRate, cogsRate};
+    const storagePct = b.rev ? ((b.storage||0)+(b.lts||0))/b.rev : 0;
+
+    // V2: Budget comparison
+    const budget = BUDGETS[b.b] || { rev: b.rev, gm: 0.15, tacos: 0.15 };
+    const revVsBudget = budget.rev ? (b.rev - budget.rev) / budget.rev : 0;
+
+    // V2: Health score (0-100)
+    let healthScore = 50;
+    if(b.gm >= 0.20) healthScore += 20;
+    else if(b.gm >= 0.10) healthScore += 10;
+    else if(b.gm < 0) healthScore -= 30;
+    if(tacos <= 0.12) healthScore += 15;
+    else if(tacos <= 0.18) healthScore += 5;
+    else if(tacos > 0.25) healthScore -= 15;
+    if(organicRevPct >= 0.50) healthScore += 15;
+    else if(organicRevPct >= 0.30) healthScore += 5;
+    else healthScore -= 10;
+    if(b.refRate <= 0.05) healthScore += 10;
+    else if(b.refRate > 0.10) healthScore -= 15;
+    if(storagePct > 0.05) healthScore -= 10;
+    healthScore = Math.max(0, Math.min(100, healthScore));
+
+    const owner = OWNERS[b.b] || { name: "Unassigned", avatar: "?" };
+
+    return {...b, totalAd, totalAdSales, tacos, acos, paidRevPct, organicRevPct, revPerUnit, profitPerUnit, totalFees, feeRate, adRate, cogsRate, storagePct, revVsBudget, healthScore, owner};
   });
   const totalRev = brands.reduce((s,b)=>s+b.rev,0);
   const totalGP = brands.reduce((s,b)=>s+b.gp,0);
@@ -160,6 +204,27 @@ function computeMonth(m) {
 }
 
 const DATA = RAW.map(computeMonth);
+
+// ── V2: YTD Calculations ────────────────────────────────────────────────────
+function getYTD(brandName) {
+  const ytdMonths = DATA.filter(m => m.period.includes("-25"));
+  let totalRev = 0, totalGP = 0, totalUnits = 0;
+  ytdMonths.forEach(m => {
+    const b = m.brands.find(x => x.b === brandName);
+    if(b) { totalRev += b.rev; totalGP += b.gp; totalUnits += b.units; }
+  });
+  return { rev: totalRev, gp: totalGP, units: totalUnits, margin: totalRev ? totalGP/totalRev : 0 };
+}
+
+// ── V2: Trailing Averages ────────────────────────────────────────────────────
+function getTrailing(brandName, months, metric) {
+  const recent = DATA.slice(-months);
+  const values = recent.map(m => {
+    const b = m.brands.find(x => x.b === brandName);
+    return b ? b[metric] : null;
+  }).filter(v => v !== null);
+  return values.length ? values.reduce((a,b) => a+b, 0) / values.length : null;
+}
 
 // ── Tab definitions ────────────────────────────────────────────────────────
 const TABS = ["Executive Summary","P&L Waterfall","Brand Deep Dive","Advertising Intel","Fee Forensics","Gaps & Recommendations"];
@@ -331,15 +396,19 @@ function ExecSummary() {
           <table className="data-table" style={{minWidth:1100}}>
           <thead>
             <tr style={{borderBottom:"2px solid #1e293b"}}>
-              {["Brand","Revenue","Units","Gross Profit","Margin","TACoS","ACoS","Organic %","Rev/Unit","Profit/Unit","COGS %","Fee %","Ad %"].map(h=>(
+              {["Brand","Health","Revenue","Units","Gross Profit","Margin","TACoS","ACoS","Organic %","Rev/Unit","COGS %","Fee %"].map(h=>(
                 <th key={h} style={{padding:"10px 12px",textAlign:"right",color:"#64748b",fontWeight:600,fontSize:11,textTransform:"uppercase",letterSpacing:.5}}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {latest.brands.map(b => (
+            {latest.brands.map(b => {
+              const healthColor = b.healthScore >= 70 ? "#10b981" : b.healthScore >= 40 ? "#f59e0b" : "#f43f5e";
+              const healthBg = b.healthScore >= 70 ? "rgba(16,185,129,0.15)" : b.healthScore >= 40 ? "rgba(245,158,11,0.15)" : "rgba(244,63,94,0.15)";
+              return (
               <tr key={b.b} style={{borderBottom:"1px solid #1e293b"}}>
                 <td style={{padding:"10px 12px",fontWeight:700,color:BRAND_COLORS[b.b]||"#e2e8f0",textAlign:"left"}}><span style={{display:"inline-block",width:8,height:8,borderRadius:2,background:BRAND_COLORS[b.b]||"#64748b",marginRight:8}}></span>{b.b}</td>
+                <td style={{padding:"10px 12px",textAlign:"right"}}><span style={{padding:"4px 10px",borderRadius:12,fontSize:12,fontWeight:700,background:healthBg,color:healthColor,fontFamily:"var(--font-mono)"}}>{b.healthScore}</span></td>
                 <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace",color:"#f1f5f9"}}>{fmtK(b.rev)}</td>
                 <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace",color:"#cbd5e1"}}>{fmtNum(b.units)}</td>
                 <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace",color:b.gp<0?"#ef4444":"#22c55e",fontWeight:600}}>{fmtK(b.gp)}</td>
@@ -348,20 +417,19 @@ function ExecSummary() {
                 <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace",color:"#cbd5e1"}}>{fmtPct(b.acos)}</td>
                 <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace",color:b.organicRevPct<.30?"#ef4444":b.organicRevPct<.50?"#f59e0b":"#22c55e"}}>{fmtPct(b.organicRevPct)}</td>
                 <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace",color:"#cbd5e1"}}>{fmt(b.revPerUnit)}</td>
-                <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace",color:b.profitPerUnit<0?"#ef4444":"#cbd5e1"}}>{fmt(b.profitPerUnit)}</td>
                 <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace",color:"#94a3b8"}}>{fmtPct(b.cogsRate)}</td>
                 <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace",color:"#94a3b8"}}>{fmtPct(b.feeRate)}</td>
-                <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace",color:"#94a3b8"}}>{fmtPct(b.adRate)}</td>
               </tr>
-            ))}
+            )})}
             <tr style={{borderTop:"2px solid #334155",fontWeight:700}}>
               <td style={{padding:"10px 12px",color:"#f1f5f9"}}>TOTAL</td>
+              <td style={{padding:"10px 12px"}}></td>
               <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace",color:"#f1f5f9"}}>{fmtK(latest.totalRev)}</td>
               <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace",color:"#f1f5f9"}}>{fmtNum(latest.totalUnits)}</td>
               <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace",color:"#22c55e"}}>{fmtK(latest.totalGP)}</td>
               <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace",color:"#22c55e"}}>{fmtPct(latest.margin)}</td>
               <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace"}}>{fmtPct(latest.tacos)}</td>
-              <td colSpan={7}></td>
+              <td colSpan={5}></td>
             </tr>
           </tbody>
         </table>
