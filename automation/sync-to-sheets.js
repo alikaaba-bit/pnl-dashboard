@@ -81,7 +81,7 @@ async function getAccessToken() {
     { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
   );
 
-  if (response.data.code === 0 && response.data.data) {
+  if ((response.data.code === 0 || response.data.code === "200" || response.data.code === 200) && response.data.data) {
     return response.data.data.access_token;
   }
   throw new Error(`Token failed: ${JSON.stringify(response.data)}`);
@@ -181,7 +181,7 @@ async function syncDaily() {
   // Fetch shop-level profit
   const profitData = await fetchProfitReport(token, dateStr, dateStr);
 
-  if (profitData.code === 0 && profitData.data) {
+  if ((profitData.code === 0 || profitData.code === "200" || profitData.code === 200) && profitData.data) {
     const records = profitData.data.records || [];
 
     const headers = [
@@ -213,7 +213,7 @@ async function syncDaily() {
   // Fetch MSKU data
   const mskuData = await fetchMskuReport(token, dateStr, dateStr);
 
-  if (mskuData.code === 0 && mskuData.data) {
+  if ((mskuData.code === 0 || mskuData.code === "200" || mskuData.code === 200) && mskuData.data) {
     const records = mskuData.data.list || mskuData.data.records || [];
 
     const headers = [
