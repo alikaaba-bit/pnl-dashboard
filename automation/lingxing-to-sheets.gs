@@ -97,7 +97,8 @@ function getAccessToken() {
   });
 
   const data = JSON.parse(response.getContentText());
-  if (data.code === 0 && data.data) {
+  // Lingxing returns code "200" or 0 for success
+  if ((data.code === 0 || data.code === "200" || data.code === 200) && data.data && data.data.access_token) {
     return data.data.access_token;
   }
   throw new Error('Failed to get access token: ' + JSON.stringify(data));
@@ -207,8 +208,9 @@ function syncDailyData() {
 
     // Fetch shop-level profit report
     const profitData = fetchProfitReport(token, dateStr, dateStr);
+    Logger.log('Profit API response: ' + JSON.stringify(profitData).substring(0, 500));
 
-    if (profitData.code === 0 && profitData.data) {
+    if ((profitData.code === 0 || profitData.code === "200" || profitData.code === 200) && profitData.data) {
       const records = profitData.data.records || [];
 
       const headers = [
@@ -240,8 +242,9 @@ function syncDailyData() {
 
     // Fetch MSKU-level data
     const mskuData = fetchMskuReport(token, dateStr, dateStr);
+    Logger.log('MSKU API response: ' + JSON.stringify(mskuData).substring(0, 500));
 
-    if (mskuData.code === 0 && mskuData.data) {
+    if ((mskuData.code === 0 || mskuData.code === "200" || mskuData.code === 200) && mskuData.data) {
       const records = mskuData.data.list || mskuData.data.records || [];
 
       const headers = [
@@ -292,7 +295,7 @@ function syncMonthlyData() {
 
     const profitData = fetchProfitReport(token, startDate, endDate);
 
-    if (profitData.code === 0 && profitData.data) {
+    if ((profitData.code === 0 || profitData.code === "200" || profitData.code === 200) && profitData.data) {
       const records = profitData.data.records || [];
 
       const headers = [

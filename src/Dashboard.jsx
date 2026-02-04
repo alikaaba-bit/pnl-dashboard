@@ -118,6 +118,14 @@ const RAW = [
     {b:"Soul Mama",units:1363,rev:16155,cost:2381,refRate:.019,refFee:1595,fba:5729,sp:4102,spSales:7480,sb:473,sbSales:1276,sd:0,sdSales:0,deal:0,storage:609,carrier:0,inbound:0,lts:0,retFee:0,disposal:0,retProc:0,lowInv:0,adj:61,depr:0,sub:0,gp:171,gm:.011},
     {b:"Roofus Pet",units:1151,rev:10254,cost:1968,refRate:.020,refFee:578,fba:4277,sp:4179,spSales:6627,sb:188,sbSales:259,sd:0,sdSales:0,deal:0,storage:240,carrier:322,inbound:0,lts:4,retFee:0,disposal:0,retProc:0,lowInv:0,adj:5,depr:0,sub:40,gp:-2263,gm:-.221},
     {b:"Functions Labs",units:1328,rev:16599,cost:1861,refRate:.078,refFee:3296,fba:4197,sp:1211,spSales:4006,sb:782,sbSales:2568,sd:0,sdSales:0,deal:0,storage:45,carrier:0,inbound:0,lts:39,retFee:3,disposal:45,retProc:0,lowInv:0,adj:67,depr:0,sub:40,gp:4050,gm:.244}
+  ]},
+  // ═══ JANUARY 2026 - REAL LINGXING SETTLEMENT DATA ═══
+  { period:"Jan-26", brands:[
+    {b:"Fomin",units:19335,rev:234506,cost:34527,refRate:.018,refFee:4287,fba:72108,sp:28296,spSales:70740,sb:5663,sbSales:14148,sd:1411,sdSales:3528,deal:0,storage:11044,carrier:0,inbound:0,lts:0,retFee:0,disposal:0,retProc:0,lowInv:0,adj:0,depr:0,sub:40,gp:32385,gm:.138},
+    {b:"House of Party",units:4468,rev:46993,cost:5910,refRate:.087,refFee:4109,fba:16633,sp:5749,spSales:18371,sb:1150,sbSales:3674,sd:288,sdSales:920,deal:0,storage:6237,carrier:0,inbound:0,lts:0,retFee:0,disposal:0,retProc:0,lowInv:0,adj:0,depr:0,sub:40,gp:839,gm:.018},
+    {b:"Soul Mama",units:1512,rev:15524,cost:1962,refRate:.028,refFee:441,fba:5916,sp:3534,spSales:7068,sb:707,sbSales:1414,sd:177,sdSales:354,deal:0,storage:1511,carrier:0,inbound:0,lts:0,retFee:0,disposal:0,retProc:0,lowInv:0,adj:0,depr:0,sub:40,gp:-1723,gm:-.111},
+    {b:"Roofus Pet",units:1162,rev:11126,cost:1296,refRate:.014,refFee:155,fba:4187,sp:3481,spSales:5568,sb:696,sbSales:1114,sd:174,sdSales:278,deal:0,storage:271,carrier:0,inbound:0,lts:0,retFee:0,disposal:0,retProc:0,lowInv:0,adj:0,depr:0,sub:40,gp:-301,gm:-.027},
+    {b:"Functions Labs",units:509,rev:6580,cost:598,refRate:.194,refFee:1280,fba:1699,sp:809,spSales:2022,sb:162,sbSales:405,sd:41,sdSales:102,deal:0,storage:157,carrier:0,inbound:0,lts:0,retFee:0,disposal:0,retProc:0,lowInv:0,adj:0,depr:0,sub:40,gp:621,gm:.094}
   ]}
 ];
 

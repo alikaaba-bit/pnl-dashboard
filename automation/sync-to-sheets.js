@@ -121,6 +121,43 @@ async function fetchMskuReport(token, startDate, endDate) {
   return response.data;
 }
 
+// Orders API - for real-time daily tracking (includes pending)
+async function fetchOrders(token, startDate, endDate) {
+  const params = {
+    start_date: startDate,
+    end_date: endDate,
+    offset: 0,
+    length: 1000
+  };
+  const ts = Math.floor(Date.now() / 1000).toString();
+  const authParams = { access_token: token, app_key: CONFIG.APP_ID, timestamp: ts };
+  authParams.sign = generateApiSign({ ...authParams, ...params });
+
+  const response = await axios.post(
+    `${CONFIG.BASE_URL}/erp/sc/data/mws/orders`,
+    params,
+    { params: authParams }
+  );
+
+  return response.data;
+}
+
+// Monthly settlement/profit report - for finance P&L
+async function fetchMonthlySettlement(token, startDate, endDate) {
+  const params = { startDate, endDate };
+  const ts = Math.floor(Date.now() / 1000).toString();
+  const authParams = { access_token: token, app_key: CONFIG.APP_ID, timestamp: ts };
+  authParams.sign = generateApiSign({ ...authParams, ...params });
+
+  const response = await axios.post(
+    `${CONFIG.BASE_URL}/bd/profit/report/open/report/seller/list`,
+    params,
+    { params: authParams }
+  );
+
+  return response.data;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // GOOGLE SHEETS
 // ═══════════════════════════════════════════════════════════════════════════
@@ -137,6 +174,23 @@ async function getSheets() {
 async function writeToSheet(sheets, sheetName, headers, rows) {
   const values = [headers, ...rows];
 
+  // First, try to create the sheet if it doesn't exist
+  try {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: CONFIG.SHEETS_ID,
+      resource: {
+        requests: [{
+          addSheet: {
+            properties: { title: sheetName }
+          }
+        }]
+      }
+    });
+    console.log(`Created new sheet: ${sheetName}`);
+  } catch (e) {
+    // Sheet already exists, that's fine
+  }
+
   // Clear existing data
   try {
     await sheets.spreadsheets.values.clear({
@@ -144,7 +198,7 @@ async function writeToSheet(sheets, sheetName, headers, rows) {
       range: `${sheetName}!A:Z`
     });
   } catch (e) {
-    // Sheet might not exist, that's ok
+    // Ignore clear errors
   }
 
   // Write new data
@@ -163,7 +217,7 @@ async function writeToSheet(sheets, sheetName, headers, rows) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function syncDaily() {
-  console.log('Starting daily sync...');
+  console.log('Starting daily sync (Orders API - real-time)...');
   console.log('Time:', new Date().toISOString());
 
   const token = await getAccessToken();
@@ -172,47 +226,65 @@ async function syncDaily() {
   const sheets = await getSheets();
   console.log('✓ Connected to Google Sheets');
 
-  // Yesterday's date (Lingxing has ~1 day delay)
+  // Today's date for orders (real-time data)
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+
+  // Also get yesterday for comparison
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
-  const dateStr = yesterday.toISOString().split('T')[0];
-  console.log(`Fetching data for: ${dateStr}`);
+  const yesterdayStr = yesterday.toISOString().split('T')[0];
 
-  // Fetch shop-level profit
-  const profitData = await fetchProfitReport(token, dateStr, dateStr);
-  console.log('Profit API response:', JSON.stringify(profitData).substring(0, 500));
+  console.log(`Fetching orders for: ${yesterdayStr} to ${todayStr}`);
 
-  if ((profitData.code === 0 || profitData.code === "200" || profitData.code === 200) && profitData.data) {
-    const records = profitData.data.records || [];
+  // Fetch orders (real-time, includes pending)
+  const ordersData = await fetchOrders(token, yesterdayStr, todayStr);
+  console.log('Orders API response:', JSON.stringify(ordersData).substring(0, 500));
 
-    const headers = [
-      'Date', 'SID', 'Store', 'Revenue', 'Units', 'COGS', 'Refund Fee',
-      'FBA Fee', 'Ad Spend', 'Storage', 'Gross Profit', 'Margin %'
-    ];
+  if ((ordersData.code === 0 || ordersData.code === "200" || ordersData.code === 200) && ordersData.data) {
+    const orders = ordersData.data.list || ordersData.data.records || ordersData.data || [];
 
-    const rows = records.map(r => {
-      const store = CONFIG.STORES.find(s => s.sid === r.sid);
+    // Aggregate by store
+    const storeAgg = {};
+    orders.forEach(o => {
+      const sid = o.sid || o.sellerId || 'unknown';
+      if (!storeAgg[sid]) {
+        storeAgg[sid] = { orders: 0, units: 0, revenue: 0, pending: 0, shipped: 0 };
+      }
+      storeAgg[sid].orders++;
+      storeAgg[sid].units += o.quantity || o.itemQuantity || 1;
+      storeAgg[sid].revenue += parseFloat(o.amount || o.orderTotal || o.itemPrice || 0);
+      if (o.orderStatus === 'Pending' || o.status === 'Pending') {
+        storeAgg[sid].pending++;
+      } else {
+        storeAgg[sid].shipped++;
+      }
+    });
+
+    const headers = ['Date', 'SID', 'Store', 'Orders', 'Units', 'Revenue', 'Pending', 'Shipped'];
+    const rows = Object.entries(storeAgg).map(([sid, data]) => {
+      const store = CONFIG.STORES.find(s => String(s.sid) === String(sid));
       return [
-        dateStr,
-        r.sid,
-        store?.name || `SID ${r.sid}`,
-        r.totalSalesAmount || 0,
-        r.totalSalesQuantity || 0,
-        Math.abs(r.cgPriceTotal || 0),
-        Math.abs(r.totalSalesRefunds || 0),
-        Math.abs(r.totalFbaDeliveryFee || 0),
-        Math.abs(r.totalAdsCost || 0),
-        Math.abs(r.totalStorageFee || 0),
-        r.grossProfit || 0,
-        ((r.grossRate || 0) * 100).toFixed(1) + '%'
+        todayStr,
+        sid,
+        store?.name || `SID ${sid}`,
+        data.orders,
+        data.units,
+        data.revenue.toFixed(2),
+        data.pending,
+        data.shipped
       ];
     });
 
-    await writeToSheet(sheets, 'Daily_Profit', headers, rows);
+    if (rows.length > 0) {
+      await writeToSheet(sheets, 'Daily_Orders', headers, rows);
+    } else {
+      console.log('No orders found for date range');
+    }
   }
 
-  // Fetch MSKU data
-  const mskuData = await fetchMskuReport(token, dateStr, dateStr);
+  // Also fetch MSKU data for product-level tracking
+  const mskuData = await fetchMskuReport(token, yesterdayStr, yesterdayStr);
   console.log('MSKU API response:', JSON.stringify(mskuData).substring(0, 500));
 
   if ((mskuData.code === 0 || mskuData.code === "200" || mskuData.code === 200) && mskuData.data) {
@@ -223,7 +295,7 @@ async function syncDaily() {
     ];
 
     const rows = records.slice(0, 500).map(r => [
-      dateStr,
+      yesterdayStr,
       r.msku || r.sellerSku || '',
       r.totalSalesAmount || 0,
       r.totalSalesQuantity || 0,
@@ -240,5 +312,72 @@ async function syncDaily() {
   console.log('✓ Daily sync completed!');
 }
 
-// Run
-syncDaily().catch(console.error);
+// Monthly P&L sync - uses settlement data for finance
+// Runs on 3rd of each month, pulls PREVIOUS month's data
+async function syncMonthly() {
+  console.log('Starting monthly P&L sync (Settlement data)...');
+  console.log('Time:', new Date().toISOString());
+
+  const token = await getAccessToken();
+  console.log('✓ Got Lingxing token');
+
+  const sheets = await getSheets();
+  console.log('✓ Connected to Google Sheets');
+
+  // PREVIOUS month range (finance runs on 3rd, needs last month's data)
+  const now = new Date();
+  const startOfPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const endOfPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+
+  const startDate = startOfPrevMonth.toISOString().split('T')[0];
+  const endDate = endOfPrevMonth.toISOString().split('T')[0];
+  const monthName = startOfPrevMonth.toLocaleString('default', { month: 'long', year: 'numeric' });
+
+  console.log(`Fetching settlement data for: ${startDate} to ${endDate}`);
+
+  // Fetch settlement/profit data (confirmed financials)
+  const profitData = await fetchMonthlySettlement(token, startDate, endDate);
+  console.log('Settlement API response:', JSON.stringify(profitData).substring(0, 500));
+
+  if ((profitData.code === 0 || profitData.code === "200" || profitData.code === 200) && profitData.data) {
+    const records = profitData.data.records || [];
+
+    const headers = [
+      'Month', 'SID', 'Store', 'Revenue', 'Units', 'COGS', 'Refund Fee',
+      'FBA Fee', 'Ad Spend', 'Storage', 'Gross Profit', 'Margin %'
+    ];
+
+    const rows = records.map(r => {
+      const store = CONFIG.STORES.find(s => s.sid === r.sid);
+      return [
+        monthName,
+        r.sid,
+        store?.name || `SID ${r.sid}`,
+        r.totalSalesAmount || 0,
+        r.totalSalesQuantity || 0,
+        Math.abs(r.cgPriceTotal || 0),
+        Math.abs(r.totalSalesRefunds || 0),
+        Math.abs(r.totalFbaDeliveryFee || 0),
+        Math.abs(r.totalAdsCost || 0),
+        Math.abs(r.totalStorageFee || 0),
+        r.grossProfit || 0,
+        ((r.grossRate || 0) * 100).toFixed(1) + '%'
+      ];
+    });
+
+    await writeToSheet(sheets, 'Monthly_PnL', headers, rows);
+  }
+
+  console.log('✓ Monthly P&L sync completed!');
+}
+
+// Run based on command line argument
+const mode = process.argv[2] || 'daily';
+
+if (mode === 'monthly') {
+  syncMonthly().catch(console.error);
+} else if (mode === 'both') {
+  syncDaily().then(() => syncMonthly()).catch(console.error);
+} else {
+  syncDaily().catch(console.error);
+}
