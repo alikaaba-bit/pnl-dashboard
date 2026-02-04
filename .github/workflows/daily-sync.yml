@@ -1,0 +1,38 @@
+name: Daily Lingxing → Google Sheets Sync
+
+on:
+  schedule:
+    # Run at 6 AM UTC every day
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+    # Allow manual trigger
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: |
+          cd automation
+          npm init -y
+          npm install axios crypto-js googleapis
+
+      - name: Run sync
+        env:
+          LINGXING_APP_ID: ${{ secrets.LINGXING_APP_ID }}
+          LINGXING_APP_SECRET: ${{ secrets.LINGXING_APP_SECRET }}
+          GOOGLE_SHEETS_ID: ${{ secrets.GOOGLE_SHEETS_ID }}
+          GOOGLE_SERVICE_ACCOUNT_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}
+        run: node automation/sync-to-sheets.js
+
+      - name: Log completion
+        run: echo "Sync completed at $(date)"

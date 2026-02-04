@@ -131,29 +131,9 @@ const pctColor = (v,good="up") => {
   if(good==="up") return v > 0 ? "#22c55e" : v < 0 ? "#ef4444" : "#64748b";
   return v < 0 ? "#22c55e" : v > 0 ? "#ef4444" : "#64748b";
 };
-const BRAND_COLORS = {"Fomin":"#10b981","House of Party":"#f59e0b","Functions Labs":"#8b5cf6","Custom Products":"#6b7280","Rockport Tools":"#ec4899","Soul Mama":"#14b8a6","Roofus Pet":"#f43f5e"};
+const BRAND_COLORS = {"Fomin":"#3b82f6","House of Party":"#f59e0b","Functions Labs":"#8b5cf6","Custom Products":"#6b7280","Rockport Tools":"#ec4899","Soul Mama":"#14b8a6","Roofus Pet":"#ef4444"};
 
-// ── V2: Budget Targets (Monthly) ────────────────────────────────────────────
-const BUDGETS = {
-  "Fomin": { rev: 280000, gm: 0.20, tacos: 0.12 },
-  "House of Party": { rev: 120000, gm: 0.10, tacos: 0.15 },
-  "Functions Labs": { rev: 15000, gm: 0.15, tacos: 0.18 },
-  "Soul Mama": { rev: 20000, gm: 0.10, tacos: 0.25 },
-  "Roofus Pet": { rev: 15000, gm: 0.15, tacos: 0.20 },
-  "Rockport Tools": { rev: 5000, gm: 0.20, tacos: 0.15 }
-};
-
-// ── V2: Team Ownership ────────────────────────────────────────────────────────
-const OWNERS = {
-  "Fomin": { name: "Team A", avatar: "F" },
-  "House of Party": { name: "Team B", avatar: "H" },
-  "Functions Labs": { name: "Team C", avatar: "L" },
-  "Soul Mama": { name: "Team D", avatar: "S" },
-  "Roofus Pet": { name: "Team D", avatar: "R" },
-  "Rockport Tools": { name: "Team E", avatar: "T" }
-};
-
-// ── Compute Enhanced Metrics (V2 Enhanced) ────────────────────────────────────
+// ── Compute Enhanced Metrics ────────────────────────────────────────────────
 function computeMonth(m) {
   const brands = m.brands.map(b => {
     const totalAd = (b.sp||0)+(b.sb||0)+(b.sd||0);
@@ -168,31 +148,7 @@ function computeMonth(m) {
     const feeRate = b.rev ? totalFees/b.rev : 0;
     const adRate = b.rev ? totalAd/b.rev : 0;
     const cogsRate = b.rev ? (b.cost||0)/b.rev : 0;
-    const storagePct = b.rev ? ((b.storage||0)+(b.lts||0))/b.rev : 0;
-
-    // V2: Budget comparison
-    const budget = BUDGETS[b.b] || { rev: b.rev, gm: 0.15, tacos: 0.15 };
-    const revVsBudget = budget.rev ? (b.rev - budget.rev) / budget.rev : 0;
-
-    // V2: Health score (0-100)
-    let healthScore = 50;
-    if(b.gm >= 0.20) healthScore += 20;
-    else if(b.gm >= 0.10) healthScore += 10;
-    else if(b.gm < 0) healthScore -= 30;
-    if(tacos <= 0.12) healthScore += 15;
-    else if(tacos <= 0.18) healthScore += 5;
-    else if(tacos > 0.25) healthScore -= 15;
-    if(organicRevPct >= 0.50) healthScore += 15;
-    else if(organicRevPct >= 0.30) healthScore += 5;
-    else healthScore -= 10;
-    if(b.refRate <= 0.05) healthScore += 10;
-    else if(b.refRate > 0.10) healthScore -= 15;
-    if(storagePct > 0.05) healthScore -= 10;
-    healthScore = Math.max(0, Math.min(100, healthScore));
-
-    const owner = OWNERS[b.b] || { name: "Unassigned", avatar: "?" };
-
-    return {...b, totalAd, totalAdSales, tacos, acos, paidRevPct, organicRevPct, revPerUnit, profitPerUnit, totalFees, feeRate, adRate, cogsRate, storagePct, revVsBudget, healthScore, owner};
+    return {...b, totalAd, totalAdSales, tacos, acos, paidRevPct, organicRevPct, revPerUnit, profitPerUnit, totalFees, feeRate, adRate, cogsRate};
   });
   const totalRev = brands.reduce((s,b)=>s+b.rev,0);
   const totalGP = brands.reduce((s,b)=>s+b.gp,0);
@@ -205,27 +161,6 @@ function computeMonth(m) {
 
 const DATA = RAW.map(computeMonth);
 
-// ── V2: YTD Calculations ────────────────────────────────────────────────────
-function getYTD(brandName) {
-  const ytdMonths = DATA.filter(m => m.period.includes("-25"));
-  let totalRev = 0, totalGP = 0, totalUnits = 0;
-  ytdMonths.forEach(m => {
-    const b = m.brands.find(x => x.b === brandName);
-    if(b) { totalRev += b.rev; totalGP += b.gp; totalUnits += b.units; }
-  });
-  return { rev: totalRev, gp: totalGP, units: totalUnits, margin: totalRev ? totalGP/totalRev : 0 };
-}
-
-// ── V2: Trailing Averages ────────────────────────────────────────────────────
-function getTrailing(brandName, months, metric) {
-  const recent = DATA.slice(-months);
-  const values = recent.map(m => {
-    const b = m.brands.find(x => x.b === brandName);
-    return b ? b[metric] : null;
-  }).filter(v => v !== null);
-  return values.length ? values.reduce((a,b) => a+b, 0) / values.length : null;
-}
-
 // ── Tab definitions ────────────────────────────────────────────────────────
 const TABS = ["Executive Summary","P&L Waterfall","Brand Deep Dive","Advertising Intel","Fee Forensics","Gaps & Recommendations"];
 
@@ -233,20 +168,13 @@ const TABS = ["Executive Summary","P&L Waterfall","Brand Deep Dive","Advertising
 const CTooltip = ({active,payload,label,formatter}) => {
   if(!active||!payload?.length) return null;
   return (
-    <div style={{
-      background:"var(--bg-elevated)",
-      border:"1px solid var(--border-medium)",
-      borderRadius:12,padding:"14px 18px",fontSize:13,color:"var(--text-primary)",
-      boxShadow:"var(--shadow-lg)",backdropFilter:"blur(8px)"
-    }}>
-      <div style={{fontWeight:700,marginBottom:8,color:"var(--text-secondary)",fontSize:11,textTransform:"uppercase",letterSpacing:1}}>{label}</div>
+    <div style={{background:"#1e293b",border:"1px solid #334155",borderRadius:8,padding:"10px 14px",fontSize:12,color:"#e2e8f0"}}>
+      <div style={{fontWeight:700,marginBottom:4,color:"#94a3b8"}}>{label}</div>
       {payload.map((p,i)=>(
-        <div key={i} style={{display:"flex",gap:10,alignItems:"center",marginBottom:4,justifyContent:"space-between"}}>
-          <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <span style={{width:10,height:10,borderRadius:3,background:p.color,display:"inline-block"}}/>
-            <span style={{color:"var(--text-muted)"}}>{p.name}</span>
-          </div>
-          <span style={{fontWeight:700,color:"var(--text-primary)",fontFamily:"var(--font-mono)"}}>{formatter?formatter(p.value):fmt(p.value)}</span>
+        <div key={i} style={{display:"flex",gap:8,alignItems:"center",marginBottom:2}}>
+          <span style={{width:8,height:8,borderRadius:2,background:p.color,display:"inline-block"}}/>
+          <span>{p.name}:</span>
+          <span style={{fontWeight:600,color:"#fff"}}>{formatter?formatter(p.value):fmt(p.value)}</span>
         </div>
       ))}
     </div>
@@ -285,30 +213,13 @@ function ExecSummary() {
   });
   if(latest.margin < 0.10) alerts.push({type:"critical",msg:`Portfolio margin dropped to ${fmtPct(latest.margin)} — below 10% threshold`});
 
-  const KPI = ({label,value,sub,change,goodDir,icon}) => (
-    <div className="card-interactive" style={{
-      background:"linear-gradient(180deg, var(--bg-card) 0%, var(--bg-secondary) 100%)",
-      borderRadius:16,padding:"24px 28px",flex:1,minWidth:200,
-      position:"relative",overflow:"hidden"
-    }}>
-      {/* Subtle glow for positive metrics */}
-      {goodDir==="up" && change > 0 && <div style={{position:"absolute",top:0,right:0,width:100,height:100,background:"radial-gradient(circle at 100% 0%, rgba(16,185,129,0.1) 0%, transparent 70%)",pointerEvents:"none"}}/>}
-      <div style={{fontSize:11,textTransform:"uppercase",letterSpacing:2,color:"var(--text-muted)",marginBottom:12,fontWeight:600,fontFamily:"var(--font-body)"}}>{label}</div>
-      <div style={{fontSize:32,fontWeight:700,color:"var(--text-primary)",fontFamily:"var(--font-mono)",letterSpacing:"-0.02em",lineHeight:1}}>{value}</div>
-      <div style={{display:"flex",alignItems:"center",gap:8,marginTop:12}}>
-        {change!=null && (
-          <span style={{
-            display:"inline-flex",alignItems:"center",gap:4,
-            padding:"4px 10px",borderRadius:20,fontSize:12,fontWeight:600,
-            fontFamily:"var(--font-mono)",
-            background:pctColor(change,goodDir)==="#22c55e"?"var(--accent-emerald-soft)":pctColor(change,goodDir)==="#ef4444"?"var(--accent-red-soft)":"var(--bg-elevated)",
-            color:pctColor(change,goodDir)==="#22c55e"?"var(--accent-emerald)":pctColor(change,goodDir)==="#ef4444"?"var(--accent-red)":"var(--text-secondary)"
-          }}>
-            <span style={{fontSize:10}}>{change>0?"▲":"▼"}</span>
-            {change>0?"+":""}{(change*100).toFixed(1)}%
-          </span>
-        )}
-        {sub && <span style={{fontSize:11,color:"var(--text-dim)"}}>{sub}</span>}
+  const KPI = ({label,value,sub,change,goodDir}) => (
+    <div style={{background:"#0f172a",borderRadius:12,padding:"20px 24px",border:"1px solid #1e293b",flex:1,minWidth:180}}>
+      <div style={{fontSize:11,textTransform:"uppercase",letterSpacing:1.5,color:"#64748b",marginBottom:8,fontWeight:600}}>{label}</div>
+      <div style={{fontSize:28,fontWeight:800,color:"#f1f5f9",fontFamily:"'JetBrains Mono',monospace"}}>{value}</div>
+      <div style={{display:"flex",alignItems:"center",gap:6,marginTop:6}}>
+        {change!=null && <span style={{fontSize:12,fontWeight:700,color:pctColor(change,goodDir),fontFamily:"monospace"}}>{change>0?"+":""}{(change*100).toFixed(1)}% MoM</span>}
+        {sub && <span style={{fontSize:11,color:"#64748b"}}>{sub}</span>}
       </div>
     </div>
   );
@@ -317,31 +228,20 @@ function ExecSummary() {
     <div>
       {/* Alerts */}
       {alerts.length > 0 && (
-        <div style={{marginBottom:28}} className="animate-fade-in">
-          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
-            <div style={{width:8,height:8,borderRadius:4,background:"var(--accent-red)",animation:"pulse 2s ease-in-out infinite"}}/>
-            <span style={{fontSize:12,fontWeight:700,color:"var(--accent-red)",textTransform:"uppercase",letterSpacing:1.5,fontFamily:"var(--font-body)"}}>Action Required — {latest.period}</span>
-          </div>
-          <div style={{display:"grid",gap:8}}>
+        <div style={{marginBottom:24}}>
+          <div style={{fontSize:13,fontWeight:700,color:"#ef4444",textTransform:"uppercase",letterSpacing:1,marginBottom:10}}>⚠ Action Required — {latest.period}</div>
+          <div style={{display:"flex",flexDirection:"column",gap:6}}>
             {alerts.map((a,i) => (
-              <div key={i} className="animate-slide-in" style={{
-                padding:"14px 18px",borderRadius:12,fontSize:13,fontWeight:500,
-                background:a.type==="critical"?"var(--accent-red-soft)":"var(--accent-amber-soft)",
-                border:`1px solid ${a.type==="critical"?"rgba(244,63,94,0.25)":"rgba(245,158,11,0.25)"}`,
-                color:a.type==="critical"?"#fda4af":"#fcd34d",
-                display:"flex",alignItems:"center",gap:12,
-                fontFamily:"var(--font-body)",animationDelay:`${i*50}ms`
-              }}>
-                <span style={{fontSize:10,opacity:0.8}}>{a.type==="critical"?"●":"●"}</span>
-                {a.msg}
+              <div key={i} style={{padding:"10px 16px",borderRadius:8,fontSize:13,fontWeight:500,background:a.type==="critical"?"rgba(239,68,68,0.12)":"rgba(245,158,11,0.12)",border:`1px solid ${a.type==="critical"?"rgba(239,68,68,0.3)":"rgba(245,158,11,0.3)"}`,color:a.type==="critical"?"#fca5a5":"#fcd34d"}}>
+                {a.type==="critical"?"🔴":"🟡"} {a.msg}
               </div>
             ))}
           </div>
         </div>
       )}
-
+      
       {/* KPI Cards */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(200px, 1fr))",gap:16,marginBottom:32}}>
+      <div style={{display:"flex",gap:12,marginBottom:24,flexWrap:"wrap"}}>
         <KPI label="Revenue" value={fmtK(latest.totalRev)} change={revChange} goodDir="up" sub={`YoY: ${yoyRevChange>0?"+":""}${(yoyRevChange*100).toFixed(0)}%`}/>
         <KPI label="Gross Profit" value={fmtK(latest.totalGP)} change={gpChange} goodDir="up"/>
         <KPI label="Margin" value={fmtPct(latest.margin)} change={latest.margin-prev.margin} goodDir="up"/>
@@ -350,17 +250,9 @@ function ExecSummary() {
       </div>
 
       {/* Revenue + Profit Trend */}
-      <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:20,marginBottom:32}}>
-        <div style={{background:"var(--bg-card)",borderRadius:20,padding:24,border:"1px solid var(--border-subtle)",boxShadow:"var(--shadow-sm)"}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-            <div style={{fontSize:14,fontWeight:700,color:"var(--text-secondary)",textTransform:"uppercase",letterSpacing:1,fontFamily:"var(--font-body)"}}>Revenue & Profit Trend</div>
-            <div style={{display:"flex",gap:12}}>
-              <div style={{display:"flex",alignItems:"center",gap:6}}><span style={{width:10,height:3,borderRadius:2,background:"var(--accent-blue)"}}/>
-              <span style={{fontSize:11,color:"var(--text-muted)"}}>Revenue</span></div>
-              <div style={{display:"flex",alignItems:"center",gap:6}}><span style={{width:10,height:10,borderRadius:2,background:"var(--accent-emerald)"}}/>
-              <span style={{fontSize:11,color:"var(--text-muted)"}}>Profit</span></div>
-            </div>
-          </div>
+      <div style={{display:"flex",gap:16,marginBottom:24,flexWrap:"wrap"}}>
+        <div style={{flex:2,minWidth:400,background:"#0f172a",borderRadius:12,padding:20,border:"1px solid #1e293b"}}>
+          <div style={{fontSize:13,fontWeight:700,color:"#94a3b8",marginBottom:16}}>REVENUE & GROSS PROFIT TREND</div>
           <ResponsiveContainer width="100%" height={260}>
             <ComposedChart data={trendData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#1e293b"/>
@@ -372,10 +264,8 @@ function ExecSummary() {
             </ComposedChart>
           </ResponsiveContainer>
         </div>
-        <div style={{background:"var(--bg-card)",borderRadius:20,padding:24,border:"1px solid var(--border-subtle)",boxShadow:"var(--shadow-sm)"}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-            <div style={{fontSize:14,fontWeight:700,color:"var(--text-secondary)",textTransform:"uppercase",letterSpacing:1,fontFamily:"var(--font-body)"}}>Margin vs TACoS</div>
-          </div>
+        <div style={{flex:1,minWidth:280,background:"#0f172a",borderRadius:12,padding:20,border:"1px solid #1e293b"}}>
+          <div style={{fontSize:13,fontWeight:700,color:"#94a3b8",marginBottom:16}}>MARGIN vs TACoS</div>
           <ResponsiveContainer width="100%" height={260}>
             <LineChart data={trendData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#1e293b"/>
@@ -390,25 +280,20 @@ function ExecSummary() {
       </div>
 
       {/* Brand Scorecards */}
-      <div style={{background:"var(--bg-card)",borderRadius:20,padding:24,border:"1px solid var(--border-subtle)",boxShadow:"var(--shadow-sm)"}}>
-        <div style={{fontSize:14,fontWeight:700,color:"var(--text-secondary)",textTransform:"uppercase",letterSpacing:1,fontFamily:"var(--font-body)",marginBottom:20}}>Brand Scorecards — {latest.period}</div>
-        <div style={{overflowX:"auto",borderRadius:12}}>
-          <table className="data-table" style={{minWidth:1100}}>
+      <div style={{fontSize:13,fontWeight:700,color:"#94a3b8",marginBottom:12}}>BRAND SCORECARDS — {latest.period}</div>
+      <div style={{overflowX:"auto"}}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
           <thead>
             <tr style={{borderBottom:"2px solid #1e293b"}}>
-              {["Brand","Health","Revenue","Units","Gross Profit","Margin","TACoS","ACoS","Organic %","Rev/Unit","COGS %","Fee %"].map(h=>(
+              {["Brand","Revenue","Units","Gross Profit","Margin","TACoS","ACoS","Organic %","Rev/Unit","Profit/Unit","COGS %","Fee %","Ad %"].map(h=>(
                 <th key={h} style={{padding:"10px 12px",textAlign:"right",color:"#64748b",fontWeight:600,fontSize:11,textTransform:"uppercase",letterSpacing:.5}}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {latest.brands.map(b => {
-              const healthColor = b.healthScore >= 70 ? "#10b981" : b.healthScore >= 40 ? "#f59e0b" : "#f43f5e";
-              const healthBg = b.healthScore >= 70 ? "rgba(16,185,129,0.15)" : b.healthScore >= 40 ? "rgba(245,158,11,0.15)" : "rgba(244,63,94,0.15)";
-              return (
+            {latest.brands.map(b => (
               <tr key={b.b} style={{borderBottom:"1px solid #1e293b"}}>
                 <td style={{padding:"10px 12px",fontWeight:700,color:BRAND_COLORS[b.b]||"#e2e8f0",textAlign:"left"}}><span style={{display:"inline-block",width:8,height:8,borderRadius:2,background:BRAND_COLORS[b.b]||"#64748b",marginRight:8}}></span>{b.b}</td>
-                <td style={{padding:"10px 12px",textAlign:"right"}}><span style={{padding:"4px 10px",borderRadius:12,fontSize:12,fontWeight:700,background:healthBg,color:healthColor,fontFamily:"var(--font-mono)"}}>{b.healthScore}</span></td>
                 <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace",color:"#f1f5f9"}}>{fmtK(b.rev)}</td>
                 <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace",color:"#cbd5e1"}}>{fmtNum(b.units)}</td>
                 <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace",color:b.gp<0?"#ef4444":"#22c55e",fontWeight:600}}>{fmtK(b.gp)}</td>
@@ -417,23 +302,23 @@ function ExecSummary() {
                 <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace",color:"#cbd5e1"}}>{fmtPct(b.acos)}</td>
                 <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace",color:b.organicRevPct<.30?"#ef4444":b.organicRevPct<.50?"#f59e0b":"#22c55e"}}>{fmtPct(b.organicRevPct)}</td>
                 <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace",color:"#cbd5e1"}}>{fmt(b.revPerUnit)}</td>
+                <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace",color:b.profitPerUnit<0?"#ef4444":"#cbd5e1"}}>{fmt(b.profitPerUnit)}</td>
                 <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace",color:"#94a3b8"}}>{fmtPct(b.cogsRate)}</td>
                 <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace",color:"#94a3b8"}}>{fmtPct(b.feeRate)}</td>
+                <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace",color:"#94a3b8"}}>{fmtPct(b.adRate)}</td>
               </tr>
-            )})}
+            ))}
             <tr style={{borderTop:"2px solid #334155",fontWeight:700}}>
               <td style={{padding:"10px 12px",color:"#f1f5f9"}}>TOTAL</td>
-              <td style={{padding:"10px 12px"}}></td>
               <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace",color:"#f1f5f9"}}>{fmtK(latest.totalRev)}</td>
               <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace",color:"#f1f5f9"}}>{fmtNum(latest.totalUnits)}</td>
               <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace",color:"#22c55e"}}>{fmtK(latest.totalGP)}</td>
               <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace",color:"#22c55e"}}>{fmtPct(latest.margin)}</td>
               <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace"}}>{fmtPct(latest.tacos)}</td>
-              <td colSpan={5}></td>
+              <td colSpan={7}></td>
             </tr>
           </tbody>
         </table>
-        </div>
       </div>
     </div>
   );
@@ -903,91 +788,45 @@ function GapsReco() {
 // ── MAIN DASHBOARD ────────────────────────────────────────────────────────
 export default function Dashboard() {
   const [tab, setTab] = useState(0);
-  const latest = DATA[DATA.length-1];
 
   return (
-    <div style={{minHeight:"100vh",background:"var(--bg-primary)",color:"var(--text-primary)",fontFamily:"var(--font-body)"}}>
+    <div style={{minHeight:"100vh",background:"#020617",color:"#e2e8f0",fontFamily:"'SF Mono','Fira Code','JetBrains Mono',monospace"}}>
       {/* Header */}
-      <header style={{
-        position:"sticky",top:0,zIndex:100,
-        background:"rgba(10,14,26,0.85)",
-        backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",
-        borderBottom:"1px solid var(--border-subtle)"
-      }}>
-        <div style={{maxWidth:1440,margin:"0 auto",padding:"0 32px"}}>
-          {/* Top bar */}
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"20px 0 16px"}}>
-            <div style={{display:"flex",alignItems:"center",gap:16}}>
-              {/* Logo mark */}
-              <div style={{
-                width:42,height:42,borderRadius:12,
-                background:"linear-gradient(135deg, #10b981 0%, #059669 100%)",
-                display:"flex",alignItems:"center",justifyContent:"center",
-                boxShadow:"0 0 24px rgba(16,185,129,0.3)"
-              }}>
-                <span style={{fontSize:18,fontWeight:800,color:"#fff"}}>P</span>
-              </div>
-              <div>
-                <div style={{fontSize:11,textTransform:"uppercase",letterSpacing:3,color:"var(--text-muted)",fontWeight:600,fontFamily:"var(--font-body)"}}>PETRA BRANDS</div>
-                <div style={{fontSize:22,fontWeight:700,color:"var(--text-primary)",fontFamily:"var(--font-display)",marginTop:2,letterSpacing:"-0.02em"}}>P&L Command Center</div>
-              </div>
-            </div>
-            <div style={{display:"flex",alignItems:"center",gap:24}}>
-              {/* Quick stats */}
-              <div style={{display:"flex",gap:20}}>
-                <div style={{textAlign:"right"}}>
-                  <div style={{fontSize:10,textTransform:"uppercase",letterSpacing:1,color:"var(--text-dim)",marginBottom:2}}>Revenue</div>
-                  <div style={{fontSize:16,fontWeight:700,fontFamily:"var(--font-mono)",color:"var(--text-primary)"}}>${(latest.totalRev/1000).toFixed(0)}K</div>
-                </div>
-                <div style={{width:1,background:"var(--border-subtle)"}}/>
-                <div style={{textAlign:"right"}}>
-                  <div style={{fontSize:10,textTransform:"uppercase",letterSpacing:1,color:"var(--text-dim)",marginBottom:2}}>Margin</div>
-                  <div style={{fontSize:16,fontWeight:700,fontFamily:"var(--font-mono)",color:"var(--accent-emerald)"}}>{(latest.margin*100).toFixed(1)}%</div>
-                </div>
-              </div>
-              {/* Date badge */}
-              <div style={{
-                padding:"8px 14px",borderRadius:10,
-                background:"var(--bg-card)",border:"1px solid var(--border-subtle)"
-              }}>
-                <div style={{fontSize:10,textTransform:"uppercase",letterSpacing:1,color:"var(--text-dim)"}}>Data Range</div>
-                <div style={{fontSize:13,fontWeight:600,color:"var(--text-secondary)",fontFamily:"var(--font-mono)",marginTop:2}}>May '24 — Dec '25</div>
-              </div>
-            </div>
+      <div style={{background:"linear-gradient(180deg,#0f172a,#020617)",borderBottom:"1px solid #1e293b",padding:"20px 24px 0"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+          <div>
+            <div style={{fontSize:11,textTransform:"uppercase",letterSpacing:3,color:"#64748b",fontWeight:600}}>PETRA BRANDS</div>
+            <div style={{fontSize:20,fontWeight:800,color:"#f1f5f9",marginTop:4}}>Amazon P&L Command Center</div>
           </div>
-
-          {/* Tabs */}
-          <nav style={{display:"flex",gap:4,overflowX:"auto",paddingBottom:0,marginLeft:-8}}>
-            {TABS.map((t,i)=>(
-              <button key={t} onClick={()=>setTab(i)} style={{
-                padding:"12px 20px",fontSize:13,fontWeight:600,cursor:"pointer",
-                border:"none",borderRadius:"10px 10px 0 0",
-                background:tab===i?"var(--bg-card)":"transparent",
-                color:tab===i?"var(--text-primary)":"var(--text-muted)",
-                transition:"all 0.2s ease",whiteSpace:"nowrap",
-                fontFamily:"var(--font-body)",
-                borderBottom:tab===i?"2px solid var(--accent-emerald)":"2px solid transparent",
-                position:"relative"
-              }}>
-                {t}
-                {tab===i && <div style={{position:"absolute",bottom:-1,left:0,right:0,height:2,background:"var(--accent-emerald)",borderRadius:2}}/>}
-              </button>
-            ))}
-          </nav>
+          <div style={{textAlign:"right"}}>
+            <div style={{fontSize:11,color:"#64748b"}}>Data Range</div>
+            <div style={{fontSize:13,fontWeight:600,color:"#94a3b8"}}>May 2024 — Dec 2025</div>
+            <div style={{fontSize:11,color:"#475569"}}>20 months · {DATA.reduce((s,d)=>s+d.brands.length,0)} brand-months</div>
+          </div>
         </div>
-      </header>
+
+        {/* Tabs */}
+        <div style={{display:"flex",gap:0,overflowX:"auto"}}>
+          {TABS.map((t,i)=>(
+            <button key={t} onClick={()=>setTab(i)} style={{
+              padding:"10px 20px",fontSize:12,fontWeight:600,cursor:"pointer",border:"none",
+              borderBottom:tab===i?"2px solid #3b82f6":"2px solid transparent",
+              background:"transparent",color:tab===i?"#f1f5f9":"#64748b",
+              transition:"all 0.2s",whiteSpace:"nowrap"
+            }}>{t}</button>
+          ))}
+        </div>
+      </div>
 
       {/* Content */}
-      <main style={{padding:"32px",maxWidth:1440,margin:"0 auto"}}>
-        <div className="animate-fade-in" key={tab}>
-          {tab===0 && <ExecSummary/>}
-          {tab===1 && <Waterfall/>}
-          {tab===2 && <BrandDeepDive/>}
-          {tab===3 && <AdvertisingIntel/>}
-          {tab===4 && <FeeForensics/>}
-          {tab===5 && <GapsReco/>}
-        </div>
-      </main>
+      <div style={{padding:24,maxWidth:1400,margin:"0 auto"}}>
+        {tab===0 && <ExecSummary/>}
+        {tab===1 && <Waterfall/>}
+        {tab===2 && <BrandDeepDive/>}
+        {tab===3 && <AdvertisingIntel/>}
+        {tab===4 && <FeeForensics/>}
+        {tab===5 && <GapsReco/>}
+      </div>
     </div>
   );
 }
