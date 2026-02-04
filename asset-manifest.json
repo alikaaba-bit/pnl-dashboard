@@ -1,13 +1,13 @@
 {
   "files": {
-    "main.css": "/pnl-dashboard/static/css/main.95a190c7.css",
-    "main.js": "/pnl-dashboard/static/js/main.fdcd3643.js",
+    "main.css": "/pnl-dashboard/static/css/main.d407c946.css",
+    "main.js": "/pnl-dashboard/static/js/main.c568f163.js",
     "index.html": "/pnl-dashboard/index.html",
-    "main.95a190c7.css.map": "/pnl-dashboard/static/css/main.95a190c7.css.map",
-    "main.fdcd3643.js.map": "/pnl-dashboard/static/js/main.fdcd3643.js.map"
+    "main.d407c946.css.map": "/pnl-dashboard/static/css/main.d407c946.css.map",
+    "main.c568f163.js.map": "/pnl-dashboard/static/js/main.c568f163.js.map"
   },
   "entrypoints": [
-    "static/css/main.95a190c7.css",
-    "static/js/main.fdcd3643.js"
+    "static/css/main.d407c946.css",
+    "static/js/main.c568f163.js"
   ]
 }
