@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ComposedChart, Area, Cell, Legend, PieChart, Pie } from "recharts";
+import SkuBreakdown from "./SkuBreakdown";
 
 // ── Raw P&L Data (20 months, May 2024 – Dec 2025) ────────────────────────
 const RAW = [
@@ -170,7 +171,7 @@ function computeMonth(m) {
 const DATA = RAW.map(computeMonth);
 
 // ── Tab definitions ────────────────────────────────────────────────────────
-const TABS = ["Executive Summary","P&L Waterfall","Brand Deep Dive","Advertising Intel","Fee Forensics","Gaps & Recommendations"];
+const TABS = ["Executive Summary","P&L Waterfall","Brand Deep Dive","Advertising Intel","Fee Forensics","Gaps & Recommendations","SKU Breakdown"];
 
 // ── Custom Tooltip ─────────────────────────────────────────────────────────
 const CTooltip = ({active,payload,label,formatter}) => {
@@ -834,6 +835,7 @@ export default function Dashboard() {
         {tab===3 && <AdvertisingIntel/>}
         {tab===4 && <FeeForensics/>}
         {tab===5 && <GapsReco/>}
+        {tab===6 && <SkuBreakdown/>}
       </div>
     </div>
   );
