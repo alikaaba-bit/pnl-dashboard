@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
+import './styles/modern-2026.css';
 import Dashboard from './Dashboard';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));

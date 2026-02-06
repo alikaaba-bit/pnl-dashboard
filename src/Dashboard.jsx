@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ComposedChart, Area, Cell, Legend, PieChart, Pie } from "recharts";
 import SkuBreakdown from "./SkuBreakdown";
+import "./styles/overflow-fixes.css";
 
 // ── Raw P&L Data (20 months, May 2024 – Dec 2025) ────────────────────────
 const RAW = [
@@ -136,9 +137,9 @@ const fmtK = (n) => n == null ? "—" : n >= 1000 ? `$${(n/1000).toFixed(0)}K` :
 const fmtPct = (n) => n == null ? "—" : `${(n*100).toFixed(1)}%`;
 const fmtNum = (n) => n == null ? "—" : n.toLocaleString("en-US",{maximumFractionDigits:0});
 const pctColor = (v,good="up") => {
-  if(v==null) return "#64748b";
-  if(good==="up") return v > 0 ? "#22c55e" : v < 0 ? "#ef4444" : "#64748b";
-  return v < 0 ? "#22c55e" : v > 0 ? "#ef4444" : "#64748b";
+  if(v==null) return "var(--text-tertiary)";
+  if(good==="up") return v > 0 ? "var(--color-success)" : v < 0 ? "var(--color-danger)" : "var(--text-tertiary)";
+  return v < 0 ? "var(--color-success)" : v > 0 ? "var(--color-danger)" : "var(--text-tertiary)";
 };
 const BRAND_COLORS = {"Fomin":"#3b82f6","House of Party":"#f59e0b","Functions Labs":"#8b5cf6","Custom Products":"#6b7280","Rockport Tools":"#ec4899","Soul Mama":"#14b8a6","Roofus Pet":"#ef4444"};
 
@@ -171,19 +172,19 @@ function computeMonth(m) {
 const DATA = RAW.map(computeMonth);
 
 // ── Tab definitions ────────────────────────────────────────────────────────
-const TABS = ["Executive Summary","P&L Waterfall","Brand Deep Dive","Advertising Intel","Fee Forensics","Gaps & Recommendations","SKU Breakdown"];
+const TABS = ["Executive Summary","P&L Waterfall","Brand Deep Dive","Advertising Intel","Fee Forensics","SKU Breakdown"];
 
 // ── Custom Tooltip ─────────────────────────────────────────────────────────
 const CTooltip = ({active,payload,label,formatter}) => {
   if(!active||!payload?.length) return null;
   return (
-    <div style={{background:"#1e293b",border:"1px solid #334155",borderRadius:8,padding:"10px 14px",fontSize:12,color:"#e2e8f0"}}>
-      <div style={{fontWeight:700,marginBottom:4,color:"#94a3b8"}}>{label}</div>
+    <div className="card-compact" style={{background:"var(--neutral-900)",border:"1px solid var(--border-medium)",boxShadow:"var(--shadow-lg)"}}>
+      <div className="text-sm font-semibold text-secondary mb-2">{label}</div>
       {payload.map((p,i)=>(
-        <div key={i} style={{display:"flex",gap:8,alignItems:"center",marginBottom:2}}>
-          <span style={{width:8,height:8,borderRadius:2,background:p.color,display:"inline-block"}}/>
-          <span>{p.name}:</span>
-          <span style={{fontWeight:600,color:"#fff"}}>{formatter?formatter(p.value):fmt(p.value)}</span>
+        <div key={i} className="flex items-center gap-2 text-xs mb-1">
+          <span style={{width:8,height:8,borderRadius:"var(--radius-xs)",background:p.color,display:"inline-block"}}/>
+          <span className="text-tertiary">{p.name}:</span>
+          <span className="font-mono font-semibold text-primary">{formatter?formatter(p.value):fmt(p.value)}</span>
         </div>
       ))}
     </div>
@@ -196,7 +197,7 @@ function ExecSummary() {
   const prev = DATA[DATA.length-2];
   const yoyIdx = DATA.length >= 13 ? DATA.length-13 : 0;
   const yoy = DATA[yoyIdx];
-  
+
   const revChange = prev.totalRev ? (latest.totalRev - prev.totalRev)/prev.totalRev : 0;
   const gpChange = prev.totalGP ? (latest.totalGP - prev.totalGP)/prev.totalGP : 0;
   const yoyRevChange = yoy.totalRev ? (latest.totalRev - yoy.totalRev)/yoy.totalRev : 0;
@@ -223,34 +224,36 @@ function ExecSummary() {
   if(latest.margin < 0.10) alerts.push({type:"critical",msg:`Portfolio margin dropped to ${fmtPct(latest.margin)} — below 10% threshold`});
 
   const KPI = ({label,value,sub,change,goodDir}) => (
-    <div style={{background:"#0f172a",borderRadius:12,padding:"20px 24px",border:"1px solid #1e293b",flex:1,minWidth:180}}>
-      <div style={{fontSize:11,textTransform:"uppercase",letterSpacing:1.5,color:"#64748b",marginBottom:8,fontWeight:600}}>{label}</div>
-      <div style={{fontSize:28,fontWeight:800,color:"#f1f5f9",fontFamily:"'JetBrains Mono',monospace"}}>{value}</div>
-      <div style={{display:"flex",alignItems:"center",gap:6,marginTop:6}}>
-        {change!=null && <span style={{fontSize:12,fontWeight:700,color:pctColor(change,goodDir),fontFamily:"monospace"}}>{change>0?"+":""}{(change*100).toFixed(1)}% MoM</span>}
-        {sub && <span style={{fontSize:11,color:"#64748b"}}>{sub}</span>}
+    <div className="metric-card animate-fade-in">
+      <div className="metric-label text-ellipsis" title={label}>{label}</div>
+      <div className="metric-value font-mono responsive-metric" title={value}>{value}</div>
+      <div className="flex items-center gap-2 mt-2 flex-wrap">
+        {change!=null && <span className={`badge badge-sm text-ellipsis ${change>0 ? (goodDir==="up" ? "badge-success" : "badge-danger") : change<0 ? (goodDir==="up" ? "badge-danger" : "badge-success") : "badge-neutral"}`} title={`${change>0?"+":""}${(change*100).toFixed(1)}% MoM`}>
+          {change>0?"+":""}{(change*100).toFixed(1)}% MoM
+        </span>}
+        {sub && <span className="text-xs text-tertiary text-ellipsis" title={sub}>{sub}</span>}
       </div>
     </div>
   );
 
   return (
-    <div>
+    <div className="animate-fade-in">
       {/* Alerts */}
       {alerts.length > 0 && (
-        <div style={{marginBottom:24}}>
-          <div style={{fontSize:13,fontWeight:700,color:"#ef4444",textTransform:"uppercase",letterSpacing:1,marginBottom:10}}>⚠ Action Required — {latest.period}</div>
-          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+        <div className="mb-6">
+          <div className="heading-6 text-danger mb-3">Action Required — {latest.period}</div>
+          <div className="flex flex-col gap-2">
             {alerts.map((a,i) => (
-              <div key={i} style={{padding:"10px 16px",borderRadius:8,fontSize:13,fontWeight:500,background:a.type==="critical"?"rgba(239,68,68,0.12)":"rgba(245,158,11,0.12)",border:`1px solid ${a.type==="critical"?"rgba(239,68,68,0.3)":"rgba(245,158,11,0.3)"}`,color:a.type==="critical"?"#fca5a5":"#fcd34d"}}>
-                {a.type==="critical"?"🔴":"🟡"} {a.msg}
+              <div key={i} className={`card-compact ${a.type==="critical"?"bg-danger-50 border-danger-500":"bg-warning-50 border-warning-500"}`} style={{borderLeftWidth:4}}>
+                <span className="text-sm font-medium">{a.type==="critical"?"🔴":"🟡"} {a.msg}</span>
               </div>
             ))}
           </div>
         </div>
       )}
-      
+
       {/* KPI Cards */}
-      <div style={{display:"flex",gap:12,marginBottom:24,flexWrap:"wrap"}}>
+      <div className="grid grid-auto-fit gap-3 mb-6">
         <KPI label="Revenue" value={fmtK(latest.totalRev)} change={revChange} goodDir="up" sub={`YoY: ${yoyRevChange>0?"+":""}${(yoyRevChange*100).toFixed(0)}%`}/>
         <KPI label="Gross Profit" value={fmtK(latest.totalGP)} change={gpChange} goodDir="up"/>
         <KPI label="Margin" value={fmtPct(latest.margin)} change={latest.margin-prev.margin} goodDir="up"/>
@@ -259,71 +262,71 @@ function ExecSummary() {
       </div>
 
       {/* Revenue + Profit Trend */}
-      <div style={{display:"flex",gap:16,marginBottom:24,flexWrap:"wrap"}}>
-        <div style={{flex:2,minWidth:400,background:"#0f172a",borderRadius:12,padding:20,border:"1px solid #1e293b"}}>
-          <div style={{fontSize:13,fontWeight:700,color:"#94a3b8",marginBottom:16}}>REVENUE & GROSS PROFIT TREND</div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+        <div className="chart-container col-span-2">
+          <div className="chart-title text-secondary mb-4">Revenue & Gross Profit Trend</div>
           <ResponsiveContainer width="100%" height={260}>
             <ComposedChart data={trendData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b"/>
-              <XAxis dataKey="period" tick={{fontSize:10,fill:"#64748b"}} interval={1}/>
-              <YAxis tick={{fontSize:10,fill:"#64748b"}} tickFormatter={v=>`$${(v/1000).toFixed(0)}K`}/>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border-light)"/>
+              <XAxis dataKey="period" tick={{fontSize:10,fill:"var(--text-tertiary)"}} interval={1}/>
+              <YAxis tick={{fontSize:10,fill:"var(--text-tertiary)"}} tickFormatter={v=>`$${(v/1000).toFixed(0)}K`}/>
               <Tooltip content={<CTooltip/>}/>
               <Area dataKey="revenue" fill="rgba(59,130,246,0.1)" stroke="#3b82f6" strokeWidth={2} name="Revenue"/>
-              <Bar dataKey="profit" fill="#22c55e" radius={[3,3,0,0]} name="Gross Profit" barSize={16}/>
+              <Bar dataKey="profit" fill="var(--color-success)" radius={[3,3,0,0]} name="Gross Profit" barSize={16}/>
             </ComposedChart>
           </ResponsiveContainer>
         </div>
-        <div style={{flex:1,minWidth:280,background:"#0f172a",borderRadius:12,padding:20,border:"1px solid #1e293b"}}>
-          <div style={{fontSize:13,fontWeight:700,color:"#94a3b8",marginBottom:16}}>MARGIN vs TACoS</div>
+        <div className="chart-container">
+          <div className="chart-title text-secondary mb-4">Margin vs TACoS</div>
           <ResponsiveContainer width="100%" height={260}>
             <LineChart data={trendData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b"/>
-              <XAxis dataKey="period" tick={{fontSize:10,fill:"#64748b"}} interval={2}/>
-              <YAxis tick={{fontSize:10,fill:"#64748b"}} tickFormatter={v=>`${v}%`} domain={[0,'auto']}/>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border-light)"/>
+              <XAxis dataKey="period" tick={{fontSize:10,fill:"var(--text-tertiary)"}} interval={2}/>
+              <YAxis tick={{fontSize:10,fill:"var(--text-tertiary)"}} tickFormatter={v=>`${v}%`} domain={[0,'auto']}/>
               <Tooltip content={<CTooltip formatter={v=>`${v.toFixed(1)}%`}/>}/>
-              <Line dataKey="margin" stroke="#22c55e" strokeWidth={2} dot={false} name="Margin %"/>
-              <Line dataKey="tacos" stroke="#ef4444" strokeWidth={2} dot={false} name="TACoS %"/>
+              <Line dataKey="margin" stroke="var(--color-success)" strokeWidth={2} dot={false} name="Margin %"/>
+              <Line dataKey="tacos" stroke="var(--color-danger)" strokeWidth={2} dot={false} name="TACoS %"/>
             </LineChart>
           </ResponsiveContainer>
         </div>
       </div>
 
       {/* Brand Scorecards */}
-      <div style={{fontSize:13,fontWeight:700,color:"#94a3b8",marginBottom:12}}>BRAND SCORECARDS — {latest.period}</div>
-      <div style={{overflowX:"auto"}}>
-        <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+      <div className="heading-6 text-secondary mb-3">Brand Scorecards — {latest.period}</div>
+      <div className="table-container">
+        <table className="table">
           <thead>
-            <tr style={{borderBottom:"2px solid #1e293b"}}>
+            <tr>
               {["Brand","Revenue","Units","Gross Profit","Margin","TACoS","ACoS","Organic %","Rev/Unit","Profit/Unit","COGS %","Fee %","Ad %"].map(h=>(
-                <th key={h} style={{padding:"10px 12px",textAlign:"right",color:"#64748b",fontWeight:600,fontSize:11,textTransform:"uppercase",letterSpacing:.5}}>{h}</th>
+                <th key={h} className={h==="Brand"?"":"table-numeric"}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {latest.brands.map(b => (
-              <tr key={b.b} style={{borderBottom:"1px solid #1e293b"}}>
-                <td style={{padding:"10px 12px",fontWeight:700,color:BRAND_COLORS[b.b]||"#e2e8f0",textAlign:"left"}}><span style={{display:"inline-block",width:8,height:8,borderRadius:2,background:BRAND_COLORS[b.b]||"#64748b",marginRight:8}}></span>{b.b}</td>
-                <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace",color:"#f1f5f9"}}>{fmtK(b.rev)}</td>
-                <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace",color:"#cbd5e1"}}>{fmtNum(b.units)}</td>
-                <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace",color:b.gp<0?"#ef4444":"#22c55e",fontWeight:600}}>{fmtK(b.gp)}</td>
-                <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace",color:b.gm<0?"#ef4444":b.gm<.05?"#f59e0b":"#22c55e",fontWeight:700}}>{fmtPct(b.gm)}</td>
-                <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace",color:b.tacos>.20?"#ef4444":b.tacos>.15?"#f59e0b":"#22c55e"}}>{fmtPct(b.tacos)}</td>
-                <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace",color:"#cbd5e1"}}>{fmtPct(b.acos)}</td>
-                <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace",color:b.organicRevPct<.30?"#ef4444":b.organicRevPct<.50?"#f59e0b":"#22c55e"}}>{fmtPct(b.organicRevPct)}</td>
-                <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace",color:"#cbd5e1"}}>{fmt(b.revPerUnit)}</td>
-                <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace",color:b.profitPerUnit<0?"#ef4444":"#cbd5e1"}}>{fmt(b.profitPerUnit)}</td>
-                <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace",color:"#94a3b8"}}>{fmtPct(b.cogsRate)}</td>
-                <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace",color:"#94a3b8"}}>{fmtPct(b.feeRate)}</td>
-                <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace",color:"#94a3b8"}}>{fmtPct(b.adRate)}</td>
+              <tr key={b.b}>
+                <td className="font-semibold table-product-name" style={{color:BRAND_COLORS[b.b]||"var(--text-primary)"}} title={b.b}><span className="status-dot" style={{background:BRAND_COLORS[b.b]||"var(--neutral-400)"}}></span>{b.b}</td>
+                <td className="table-numeric font-mono" title={fmt(b.rev)}>{fmtK(b.rev)}</td>
+                <td className="table-numeric font-mono text-secondary" title={fmtNum(b.units)}>{fmtNum(b.units)}</td>
+                <td className="table-numeric font-mono font-semibold" style={{color:b.gp<0?"var(--color-danger)":"var(--color-success)"}} title={fmt(b.gp)}>{fmtK(b.gp)}</td>
+                <td className="table-numeric font-mono font-bold" style={{color:b.gm<0?"var(--color-danger)":b.gm<.05?"var(--color-warning)":"var(--color-success)"}} title={fmtPct(b.gm)}>{fmtPct(b.gm)}</td>
+                <td className="table-numeric font-mono" style={{color:b.tacos>.20?"var(--color-danger)":b.tacos>.15?"var(--color-warning)":"var(--color-success)"}} title={fmtPct(b.tacos)}>{fmtPct(b.tacos)}</td>
+                <td className="table-numeric font-mono text-secondary" title={fmtPct(b.acos)}>{fmtPct(b.acos)}</td>
+                <td className="table-numeric font-mono" style={{color:b.organicRevPct<.30?"var(--color-danger)":b.organicRevPct<.50?"var(--color-warning)":"var(--color-success)"}} title={fmtPct(b.organicRevPct)}>{fmtPct(b.organicRevPct)}</td>
+                <td className="table-numeric font-mono text-secondary" title={fmt(b.revPerUnit)}>{fmt(b.revPerUnit)}</td>
+                <td className="table-numeric font-mono" style={{color:b.profitPerUnit<0?"var(--color-danger)":"var(--text-secondary)"}} title={fmt(b.profitPerUnit)}>{fmt(b.profitPerUnit)}</td>
+                <td className="table-numeric font-mono text-tertiary" title={fmtPct(b.cogsRate)}>{fmtPct(b.cogsRate)}</td>
+                <td className="table-numeric font-mono text-tertiary" title={fmtPct(b.feeRate)}>{fmtPct(b.feeRate)}</td>
+                <td className="table-numeric font-mono text-tertiary" title={fmtPct(b.adRate)}>{fmtPct(b.adRate)}</td>
               </tr>
             ))}
-            <tr style={{borderTop:"2px solid #334155",fontWeight:700}}>
-              <td style={{padding:"10px 12px",color:"#f1f5f9"}}>TOTAL</td>
-              <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace",color:"#f1f5f9"}}>{fmtK(latest.totalRev)}</td>
-              <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace",color:"#f1f5f9"}}>{fmtNum(latest.totalUnits)}</td>
-              <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace",color:"#22c55e"}}>{fmtK(latest.totalGP)}</td>
-              <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace",color:"#22c55e"}}>{fmtPct(latest.margin)}</td>
-              <td style={{padding:"10px 12px",textAlign:"right",fontFamily:"monospace"}}>{fmtPct(latest.tacos)}</td>
+            <tr className="font-bold bg-neutral-50">
+              <td>TOTAL</td>
+              <td className="table-numeric font-mono">{fmtK(latest.totalRev)}</td>
+              <td className="table-numeric font-mono">{fmtNum(latest.totalUnits)}</td>
+              <td className="table-numeric font-mono text-success">{fmtK(latest.totalGP)}</td>
+              <td className="table-numeric font-mono text-success">{fmtPct(latest.margin)}</td>
+              <td className="table-numeric font-mono">{fmtPct(latest.tacos)}</td>
               <td colSpan={7}></td>
             </tr>
           </tbody>
@@ -337,7 +340,7 @@ function ExecSummary() {
 function Waterfall() {
   const [selMonth, setSelMonth] = useState(DATA.length-1);
   const m = DATA[selMonth];
-  
+
   // Build waterfall steps for the portfolio
   const totalAdSpend = m.brands.reduce((s,b)=>s+b.totalAd,0);
   const totalRefFee = m.brands.reduce((s,b)=>s+(b.refFee||0),0);
@@ -374,27 +377,29 @@ function Waterfall() {
   });
 
   return (
-    <div>
-      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
-        <div style={{fontSize:13,fontWeight:700,color:"#94a3b8"}}>PERIOD:</div>
-        <select value={selMonth} onChange={e=>setSelMonth(Number(e.target.value))} style={{background:"#1e293b",color:"#f1f5f9",border:"1px solid #334155",borderRadius:8,padding:"8px 12px",fontSize:13,cursor:"pointer"}}>
-          {DATA.map((d,i)=><option key={i} value={i}>{d.period}</option>)}
-        </select>
+    <div className="animate-fade-in">
+      <div className="filters-bar mb-6">
+        <div className="filter-group">
+          <div className="filter-label">Period:</div>
+          <select value={selMonth} onChange={e=>setSelMonth(Number(e.target.value))} className="form-select">
+            {DATA.map((d,i)=><option key={i} value={i}>{d.period}</option>)}
+          </select>
+        </div>
       </div>
 
       {/* Waterfall Bars */}
-      <div style={{background:"#0f172a",borderRadius:12,padding:20,border:"1px solid #1e293b",marginBottom:20}}>
-        <div style={{fontSize:13,fontWeight:700,color:"#94a3b8",marginBottom:16}}>P&L WATERFALL — {m.period}</div>
+      <div className="chart-container mb-6">
+        <div className="chart-title text-secondary mb-4">P&L Waterfall — {m.period}</div>
         <ResponsiveContainer width="100%" height={320}>
           <BarChart data={waterfallData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b"/>
-            <XAxis dataKey="name" tick={{fontSize:10,fill:"#94a3b8"}} interval={0} angle={-25} textAnchor="end" height={60}/>
-            <YAxis tick={{fontSize:10,fill:"#64748b"}} tickFormatter={v=>`$${(v/1000).toFixed(0)}K`}/>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border-light)"/>
+            <XAxis dataKey="name" tick={{fontSize:10,fill:"var(--text-tertiary)"}} interval={0} angle={-25} textAnchor="end" height={60}/>
+            <YAxis tick={{fontSize:10,fill:"var(--text-tertiary)"}} tickFormatter={v=>`$${(v/1000).toFixed(0)}K`}/>
             <Tooltip content={<CTooltip/>}/>
             <Bar dataKey="bottom" stackId="a" fill="transparent" />
             <Bar dataKey="value" stackId="a" radius={[3,3,0,0]}>
               {waterfallData.map((d,i)=>(
-                <Cell key={i} fill={d.type==="total"?"#3b82f6":d.type==="result"?(d.value>=0?"#22c55e":"#ef4444"):d.type==="gain"?"#22c55e":"#ef4444"}/>
+                <Cell key={i} fill={d.type==="total"?"#3b82f6":d.type==="result"?(d.value>=0?"var(--color-success)":"var(--color-danger)"):d.type==="gain"?"var(--color-success)":"var(--color-danger)"}/>
               ))}
             </Bar>
           </BarChart>
@@ -402,13 +407,13 @@ function Waterfall() {
       </div>
 
       {/* Brand-Level P&L Table */}
-      <div style={{fontSize:13,fontWeight:700,color:"#94a3b8",marginBottom:12}}>BRAND P&L BREAKDOWN — {m.period}</div>
-      <div style={{overflowX:"auto"}}>
-        <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+      <div className="heading-6 text-secondary mb-3">Brand P&L Breakdown — {m.period}</div>
+      <div className="table-container">
+        <table className="table table-compact">
           <thead>
-            <tr style={{borderBottom:"2px solid #1e293b"}}>
+            <tr>
               {["Brand","Revenue","COGS","% Rev","Ref Fee","FBA","Ad Spend","Storage+LTS","Logistics","Other","GP","Margin"].map(h=>(
-                <th key={h} style={{padding:"8px 10px",textAlign:"right",color:"#64748b",fontWeight:600,fontSize:10,textTransform:"uppercase"}}>{h}</th>
+                <th key={h} className={h==="Brand"?"":"table-numeric"}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -418,19 +423,19 @@ function Waterfall() {
               const logi = (b.carrier||0)+(b.inbound||0);
               const other = (b.retFee||0)+(b.disposal||0)+(b.retProc||0)+(b.lowInv||0)+(b.deal||0)+(b.sub||0);
               return (
-                <tr key={b.b} style={{borderBottom:"1px solid #1e293b"}}>
-                  <td style={{padding:"8px 10px",fontWeight:600,color:BRAND_COLORS[b.b]||"#e2e8f0",textAlign:"left"}}>{b.b}</td>
-                  <td style={{padding:"8px 10px",textAlign:"right",fontFamily:"monospace"}}>{fmtK(b.rev)}</td>
-                  <td style={{padding:"8px 10px",textAlign:"right",fontFamily:"monospace",color:"#f87171"}}>{fmtK(b.cost)}</td>
-                  <td style={{padding:"8px 10px",textAlign:"right",fontFamily:"monospace",color:"#94a3b8",fontSize:10}}>{fmtPct(b.cogsRate)}</td>
-                  <td style={{padding:"8px 10px",textAlign:"right",fontFamily:"monospace",color:"#f87171"}}>{fmtK(b.refFee)}</td>
-                  <td style={{padding:"8px 10px",textAlign:"right",fontFamily:"monospace",color:"#f87171"}}>{fmtK(b.fba)}</td>
-                  <td style={{padding:"8px 10px",textAlign:"right",fontFamily:"monospace",color:"#f87171"}}>{fmtK(b.totalAd)}</td>
-                  <td style={{padding:"8px 10px",textAlign:"right",fontFamily:"monospace",color:stor>b.rev*.03?"#ef4444":"#f87171"}}>{fmtK(stor)}</td>
-                  <td style={{padding:"8px 10px",textAlign:"right",fontFamily:"monospace",color:"#f87171"}}>{fmtK(logi)}</td>
-                  <td style={{padding:"8px 10px",textAlign:"right",fontFamily:"monospace",color:"#f87171"}}>{fmtK(other)}</td>
-                  <td style={{padding:"8px 10px",textAlign:"right",fontFamily:"monospace",fontWeight:700,color:b.gp<0?"#ef4444":"#22c55e"}}>{fmtK(b.gp)}</td>
-                  <td style={{padding:"8px 10px",textAlign:"right",fontFamily:"monospace",fontWeight:700,color:b.gm<0?"#ef4444":b.gm<.05?"#f59e0b":"#22c55e"}}>{fmtPct(b.gm)}</td>
+                <tr key={b.b}>
+                  <td className="font-semibold table-product-name" style={{color:BRAND_COLORS[b.b]||"var(--text-primary)"}} title={b.b}>{b.b}</td>
+                  <td className="table-numeric font-mono" title={fmt(b.rev)}>{fmtK(b.rev)}</td>
+                  <td className="table-numeric font-mono text-danger" title={fmt(b.cost)}>{fmtK(b.cost)}</td>
+                  <td className="table-numeric font-mono text-tertiary text-xs" title={fmtPct(b.cogsRate)}>{fmtPct(b.cogsRate)}</td>
+                  <td className="table-numeric font-mono text-danger" title={fmt(b.refFee)}>{fmtK(b.refFee)}</td>
+                  <td className="table-numeric font-mono text-danger" title={fmt(b.fba)}>{fmtK(b.fba)}</td>
+                  <td className="table-numeric font-mono text-danger" title={fmt(b.totalAd)}>{fmtK(b.totalAd)}</td>
+                  <td className="table-numeric font-mono" style={{color:stor>b.rev*.03?"var(--color-danger)":"var(--text-danger)"}} title={fmt(stor)}>{fmtK(stor)}</td>
+                  <td className="table-numeric font-mono text-danger" title={fmt(logi)}>{fmtK(logi)}</td>
+                  <td className="table-numeric font-mono text-danger" title={fmt(other)}>{fmtK(other)}</td>
+                  <td className="table-numeric font-mono font-bold" style={{color:b.gp<0?"var(--color-danger)":"var(--color-success)"}} title={fmt(b.gp)}>{fmtK(b.gp)}</td>
+                  <td className="table-numeric font-mono font-bold" style={{color:b.gm<0?"var(--color-danger)":b.gm<.05?"var(--color-warning)":"var(--color-success)"}} title={fmtPct(b.gm)}>{fmtPct(b.gm)}</td>
                 </tr>
               );
             })}
@@ -453,67 +458,67 @@ function BrandDeepDive() {
   }).filter(Boolean);
 
   return (
-    <div>
-      <div style={{display:"flex",gap:8,marginBottom:20,flexWrap:"wrap"}}>
+    <div className="animate-fade-in">
+      <div className="flex gap-2 mb-6 flex-wrap">
         {allBrands.map(b=>(
-          <button key={b} onClick={()=>setSelBrand(b)} style={{padding:"8px 16px",borderRadius:8,border:"none",fontSize:12,fontWeight:600,cursor:"pointer",background:selBrand===b?(BRAND_COLORS[b]||"#3b82f6"):"#1e293b",color:selBrand===b?"#fff":"#94a3b8",transition:"all 0.2s"}}>{b}</button>
+          <button key={b} onClick={()=>setSelBrand(b)} className={`btn btn-sm ${selBrand===b?"btn-primary":"btn-ghost"}`} style={selBrand===b?{background:BRAND_COLORS[b]}:{}}>{b}</button>
         ))}
       </div>
 
-      <div style={{display:"flex",gap:16,flexWrap:"wrap",marginBottom:20}}>
-        <div style={{flex:1,minWidth:400,background:"#0f172a",borderRadius:12,padding:20,border:"1px solid #1e293b"}}>
-          <div style={{fontSize:13,fontWeight:700,color:"#94a3b8",marginBottom:12}}>REVENUE & PROFIT</div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+        <div className="chart-container">
+          <div className="chart-title text-secondary mb-4">Revenue & Profit</div>
           <ResponsiveContainer width="100%" height={240}>
             <ComposedChart data={brandTrend}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b"/>
-              <XAxis dataKey="period" tick={{fontSize:9,fill:"#64748b"}} interval={2}/>
-              <YAxis tick={{fontSize:10,fill:"#64748b"}} tickFormatter={v=>`$${(v/1000).toFixed(0)}K`}/>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border-light)"/>
+              <XAxis dataKey="period" tick={{fontSize:9,fill:"var(--text-tertiary)"}} interval={2}/>
+              <YAxis tick={{fontSize:10,fill:"var(--text-tertiary)"}} tickFormatter={v=>`$${(v/1000).toFixed(0)}K`}/>
               <Tooltip content={<CTooltip/>}/>
               <Area dataKey="revenue" fill={`${BRAND_COLORS[selBrand]||"#3b82f6"}22`} stroke={BRAND_COLORS[selBrand]||"#3b82f6"} strokeWidth={2} name="Revenue"/>
-              <Bar dataKey="profit" fill="#22c55e" radius={[2,2,0,0]} name="Profit" barSize={14}/>
+              <Bar dataKey="profit" fill="var(--color-success)" radius={[2,2,0,0]} name="Profit" barSize={14}/>
             </ComposedChart>
           </ResponsiveContainer>
         </div>
-        <div style={{flex:1,minWidth:350,background:"#0f172a",borderRadius:12,padding:20,border:"1px solid #1e293b"}}>
-          <div style={{fontSize:13,fontWeight:700,color:"#94a3b8",marginBottom:12}}>MARGIN vs TACoS vs ORGANIC %</div>
+        <div className="chart-container">
+          <div className="chart-title text-secondary mb-4">Margin vs TACoS vs Organic %</div>
           <ResponsiveContainer width="100%" height={240}>
             <LineChart data={brandTrend}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b"/>
-              <XAxis dataKey="period" tick={{fontSize:9,fill:"#64748b"}} interval={2}/>
-              <YAxis tick={{fontSize:10,fill:"#64748b"}} tickFormatter={v=>`${v}%`}/>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border-light)"/>
+              <XAxis dataKey="period" tick={{fontSize:9,fill:"var(--text-tertiary)"}} interval={2}/>
+              <YAxis tick={{fontSize:10,fill:"var(--text-tertiary)"}} tickFormatter={v=>`${v}%`}/>
               <Tooltip content={<CTooltip formatter={v=>`${v.toFixed(1)}%`}/>}/>
-              <Line dataKey="margin" stroke="#22c55e" strokeWidth={2} dot={false} name="Margin %"/>
-              <Line dataKey="tacos" stroke="#ef4444" strokeWidth={2} dot={false} name="TACoS %"/>
+              <Line dataKey="margin" stroke="var(--color-success)" strokeWidth={2} dot={false} name="Margin %"/>
+              <Line dataKey="tacos" stroke="var(--color-danger)" strokeWidth={2} dot={false} name="TACoS %"/>
               <Line dataKey="organicPct" stroke="#3b82f6" strokeWidth={2} dot={false} name="Organic %"/>
             </LineChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      <div style={{display:"flex",gap:16,flexWrap:"wrap"}}>
-        <div style={{flex:1,minWidth:350,background:"#0f172a",borderRadius:12,padding:20,border:"1px solid #1e293b"}}>
-          <div style={{fontSize:13,fontWeight:700,color:"#94a3b8",marginBottom:12}}>UNIT ECONOMICS</div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="chart-container">
+          <div className="chart-title text-secondary mb-4">Unit Economics</div>
           <ResponsiveContainer width="100%" height={220}>
             <ComposedChart data={brandTrend}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b"/>
-              <XAxis dataKey="period" tick={{fontSize:9,fill:"#64748b"}} interval={2}/>
-              <YAxis tick={{fontSize:10,fill:"#64748b"}} tickFormatter={v=>`$${v.toFixed(0)}`}/>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border-light)"/>
+              <XAxis dataKey="period" tick={{fontSize:9,fill:"var(--text-tertiary)"}} interval={2}/>
+              <YAxis tick={{fontSize:10,fill:"var(--text-tertiary)"}} tickFormatter={v=>`$${v.toFixed(0)}`}/>
               <Tooltip content={<CTooltip formatter={v=>`$${v.toFixed(2)}`}/>}/>
               <Bar dataKey="revPerUnit" fill="#3b82f6" radius={[2,2,0,0]} name="Rev/Unit" barSize={12}/>
-              <Line dataKey="profitPerUnit" stroke="#22c55e" strokeWidth={2} dot={false} name="Profit/Unit"/>
+              <Line dataKey="profitPerUnit" stroke="var(--color-success)" strokeWidth={2} dot={false} name="Profit/Unit"/>
             </ComposedChart>
           </ResponsiveContainer>
         </div>
-        <div style={{flex:1,minWidth:350,background:"#0f172a",borderRadius:12,padding:20,border:"1px solid #1e293b"}}>
-          <div style={{fontSize:13,fontWeight:700,color:"#94a3b8",marginBottom:12}}>AD SPEND vs STORAGE COSTS</div>
+        <div className="chart-container">
+          <div className="chart-title text-secondary mb-4">Ad Spend vs Storage Costs</div>
           <ResponsiveContainer width="100%" height={220}>
             <ComposedChart data={brandTrend}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b"/>
-              <XAxis dataKey="period" tick={{fontSize:9,fill:"#64748b"}} interval={2}/>
-              <YAxis tick={{fontSize:10,fill:"#64748b"}} tickFormatter={v=>`$${(v/1000).toFixed(0)}K`}/>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border-light)"/>
+              <XAxis dataKey="period" tick={{fontSize:9,fill:"var(--text-tertiary)"}} interval={2}/>
+              <YAxis tick={{fontSize:10,fill:"var(--text-tertiary)"}} tickFormatter={v=>`$${(v/1000).toFixed(0)}K`}/>
               <Tooltip content={<CTooltip/>}/>
-              <Bar dataKey="adSpend" fill="#ef4444" radius={[2,2,0,0]} name="Ad Spend" barSize={12}/>
-              <Bar dataKey="storage" fill="#f59e0b" radius={[2,2,0,0]} name="Storage+LTS" barSize={12}/>
+              <Bar dataKey="adSpend" fill="var(--color-danger)" radius={[2,2,0,0]} name="Ad Spend" barSize={12}/>
+              <Bar dataKey="storage" fill="var(--color-warning)" radius={[2,2,0,0]} name="Storage+LTS" barSize={12}/>
             </ComposedChart>
           </ResponsiveContainer>
         </div>
@@ -555,26 +560,26 @@ function AdvertisingIntel() {
   const latest = adData[adData.length-1];
 
   return (
-    <div>
+    <div className="animate-fade-in">
       {/* MCP Philosophy Banner */}
-      <div style={{background:"linear-gradient(135deg,#0f172a,#1e1b4b)",borderRadius:12,padding:20,border:"1px solid #312e81",marginBottom:20}}>
-        <div style={{fontSize:13,fontWeight:700,color:"#818cf8",marginBottom:8}}>📊 ADVERTISING MCP PHILOSOPHY</div>
-        <div style={{fontSize:12,color:"#94a3b8",lineHeight:1.6}}>
-          Structured campaign architecture → Data-driven bid management → Continuous keyword harvesting. 
-          SP drives 75%+ of spend (exact match & phrase discovery). SB for brand awareness. SD for retargeting & display. 
+      <div className="card mb-6" style={{background:"linear-gradient(135deg,var(--primary-950),var(--primary-900))",border:"1px solid var(--primary-700)"}}>
+        <div className="heading-6 text-primary-400 mb-2">Advertising MCP Philosophy</div>
+        <div className="text-sm text-secondary" style={{lineHeight:1.6}}>
+          Structured campaign architecture → Data-driven bid management → Continuous keyword harvesting.
+          SP drives 75%+ of spend (exact match & phrase discovery). SB for brand awareness. SD for retargeting & display.
           Healthy portfolio: TACoS declining while revenue grows. Blended ACoS decreasing. Organic revenue share increasing.
         </div>
       </div>
 
       {/* Ad Spend by Type */}
-      <div style={{display:"flex",gap:16,marginBottom:20,flexWrap:"wrap"}}>
-        <div style={{flex:2,minWidth:400,background:"#0f172a",borderRadius:12,padding:20,border:"1px solid #1e293b"}}>
-          <div style={{fontSize:13,fontWeight:700,color:"#94a3b8",marginBottom:12}}>AD SPEND BY CAMPAIGN TYPE</div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+        <div className="chart-container col-span-2">
+          <div className="chart-title text-secondary mb-4">Ad Spend by Campaign Type</div>
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={adData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b"/>
-              <XAxis dataKey="period" tick={{fontSize:9,fill:"#64748b"}} interval={2}/>
-              <YAxis tick={{fontSize:10,fill:"#64748b"}} tickFormatter={v=>`$${(v/1000).toFixed(0)}K`}/>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border-light)"/>
+              <XAxis dataKey="period" tick={{fontSize:9,fill:"var(--text-tertiary)"}} interval={2}/>
+              <YAxis tick={{fontSize:10,fill:"var(--text-tertiary)"}} tickFormatter={v=>`$${(v/1000).toFixed(0)}K`}/>
               <Tooltip content={<CTooltip/>}/>
               <Bar dataKey="sp" stackId="a" fill="#3b82f6" name="SP (Sponsored Products)" radius={[0,0,0,0]}/>
               <Bar dataKey="sb" stackId="a" fill="#8b5cf6" name="SB (Sponsored Brands)"/>
@@ -582,8 +587,8 @@ function AdvertisingIntel() {
             </BarChart>
           </ResponsiveContainer>
         </div>
-        <div style={{flex:1,minWidth:250,background:"#0f172a",borderRadius:12,padding:20,border:"1px solid #1e293b"}}>
-          <div style={{fontSize:13,fontWeight:700,color:"#94a3b8",marginBottom:12}}>SPEND MIX — {latest.period}</div>
+        <div className="chart-container">
+          <div className="chart-title text-secondary mb-4">Spend Mix — {latest.period}</div>
           <ResponsiveContainer width="100%" height={240}>
             <PieChart>
               <Pie data={[{name:"SP",value:latest.sp},{name:"SB",value:latest.sb},{name:"SD",value:latest.sd}]} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" label={({name,percent})=>`${name} ${(percent*100).toFixed(0)}%`} labelLine={false}>
@@ -596,47 +601,47 @@ function AdvertisingIntel() {
       </div>
 
       {/* ACoS by Type + TACoS */}
-      <div style={{display:"flex",gap:16,marginBottom:20,flexWrap:"wrap"}}>
-        <div style={{flex:1,minWidth:400,background:"#0f172a",borderRadius:12,padding:20,border:"1px solid #1e293b"}}>
-          <div style={{fontSize:13,fontWeight:700,color:"#94a3b8",marginBottom:12}}>ACoS BY CAMPAIGN TYPE + TACoS</div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+        <div className="chart-container">
+          <div className="chart-title text-secondary mb-4">ACoS by Campaign Type + TACoS</div>
           <ResponsiveContainer width="100%" height={240}>
             <LineChart data={adData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b"/>
-              <XAxis dataKey="period" tick={{fontSize:9,fill:"#64748b"}} interval={2}/>
-              <YAxis tick={{fontSize:10,fill:"#64748b"}} tickFormatter={v=>`${v}%`}/>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border-light)"/>
+              <XAxis dataKey="period" tick={{fontSize:9,fill:"var(--text-tertiary)"}} interval={2}/>
+              <YAxis tick={{fontSize:10,fill:"var(--text-tertiary)"}} tickFormatter={v=>`${v}%`}/>
               <Tooltip content={<CTooltip formatter={v=>`${v.toFixed(1)}%`}/>}/>
               <Line dataKey="spAcos" stroke="#3b82f6" strokeWidth={2} dot={false} name="SP ACoS"/>
               <Line dataKey="sbAcos" stroke="#8b5cf6" strokeWidth={2} dot={false} name="SB ACoS"/>
-              <Line dataKey="tacos" stroke="#ef4444" strokeWidth={2.5} dot={false} name="TACoS" strokeDasharray="5 5"/>
-              <Line dataKey="blendedAcos" stroke="#f59e0b" strokeWidth={1.5} dot={false} name="Blended ACoS"/>
+              <Line dataKey="tacos" stroke="var(--color-danger)" strokeWidth={2.5} dot={false} name="TACoS" strokeDasharray="5 5"/>
+              <Line dataKey="blendedAcos" stroke="var(--color-warning)" strokeWidth={1.5} dot={false} name="Blended ACoS"/>
             </LineChart>
           </ResponsiveContainer>
         </div>
-        <div style={{flex:1,minWidth:350,background:"#0f172a",borderRadius:12,padding:20,border:"1px solid #1e293b"}}>
-          <div style={{fontSize:13,fontWeight:700,color:"#94a3b8",marginBottom:12}}>ORGANIC vs PAID REVENUE %</div>
+        <div className="chart-container">
+          <div className="chart-title text-secondary mb-4">Organic vs Paid Revenue %</div>
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={adData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b"/>
-              <XAxis dataKey="period" tick={{fontSize:9,fill:"#64748b"}} interval={2}/>
-              <YAxis tick={{fontSize:10,fill:"#64748b"}} tickFormatter={v=>`${v}%`} domain={[0,100]}/>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border-light)"/>
+              <XAxis dataKey="period" tick={{fontSize:9,fill:"var(--text-tertiary)"}} interval={2}/>
+              <YAxis tick={{fontSize:10,fill:"var(--text-tertiary)"}} tickFormatter={v=>`${v}%`} domain={[0,100]}/>
               <Tooltip content={<CTooltip formatter={v=>`${v.toFixed(1)}%`}/>}/>
-              <Bar dataKey="organicPct" stackId="a" fill="#22c55e" name="Organic %" radius={[0,0,0,0]}/>
-              <Bar dataKey="adSalesRatio" stackId="a" fill="#ef4444" name="Paid %" radius={[3,3,0,0]}/>
+              <Bar dataKey="organicPct" stackId="a" fill="var(--color-success)" name="Organic %" radius={[0,0,0,0]}/>
+              <Bar dataKey="adSalesRatio" stackId="a" fill="var(--color-danger)" name="Paid %" radius={[3,3,0,0]}/>
             </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
 
       {/* ROAS trend */}
-      <div style={{background:"#0f172a",borderRadius:12,padding:20,border:"1px solid #1e293b"}}>
-        <div style={{fontSize:13,fontWeight:700,color:"#94a3b8",marginBottom:12}}>ROAS TREND (Return on Ad Spend)</div>
+      <div className="chart-container">
+        <div className="chart-title text-secondary mb-4">ROAS Trend (Return on Ad Spend)</div>
         <ResponsiveContainer width="100%" height={200}>
           <LineChart data={adData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b"/>
-            <XAxis dataKey="period" tick={{fontSize:9,fill:"#64748b"}} interval={2}/>
-            <YAxis tick={{fontSize:10,fill:"#64748b"}} tickFormatter={v=>`${v.toFixed(1)}x`}/>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border-light)"/>
+            <XAxis dataKey="period" tick={{fontSize:9,fill:"var(--text-tertiary)"}} interval={2}/>
+            <YAxis tick={{fontSize:10,fill:"var(--text-tertiary)"}} tickFormatter={v=>`${v.toFixed(1)}x`}/>
             <Tooltip content={<CTooltip formatter={v=>`${v.toFixed(2)}x`}/>}/>
-            <Line dataKey="roas" stroke="#22c55e" strokeWidth={2.5} dot={{r:3,fill:"#22c55e"}} name="ROAS"/>
+            <Line dataKey="roas" stroke="var(--color-success)" strokeWidth={2.5} dot={{r:3,fill:"var(--color-success)"}} name="ROAS"/>
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -668,19 +673,19 @@ function FeeForensics() {
   });
 
   return (
-    <div>
-      <div style={{background:"#0f172a",borderRadius:12,padding:20,border:"1px solid #1e293b",marginBottom:20}}>
-        <div style={{fontSize:13,fontWeight:700,color:"#94a3b8",marginBottom:12}}>COST AS % OF REVENUE — WHERE THE MONEY GOES</div>
+    <div className="animate-fade-in">
+      <div className="chart-container mb-6">
+        <div className="chart-title text-secondary mb-4">Cost as % of Revenue — Where the Money Goes</div>
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={feeData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b"/>
-            <XAxis dataKey="period" tick={{fontSize:9,fill:"#64748b"}} interval={1}/>
-            <YAxis tick={{fontSize:10,fill:"#64748b"}} tickFormatter={v=>`${v}%`}/>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border-light)"/>
+            <XAxis dataKey="period" tick={{fontSize:9,fill:"var(--text-tertiary)"}} interval={1}/>
+            <YAxis tick={{fontSize:10,fill:"var(--text-tertiary)"}} tickFormatter={v=>`${v}%`}/>
             <Tooltip content={<CTooltip formatter={v=>`${v.toFixed(1)}%`}/>}/>
             <Legend wrapperStyle={{fontSize:11}}/>
             <Bar dataKey="cogsPct" stackId="a" fill="#64748b" name="COGS"/>
-            <Bar dataKey="refPct" stackId="a" fill="#f59e0b" name="Referral Fee"/>
-            <Bar dataKey="fbaPct" stackId="a" fill="#ef4444" name="FBA"/>
+            <Bar dataKey="refPct" stackId="a" fill="var(--color-warning)" name="Referral Fee"/>
+            <Bar dataKey="fbaPct" stackId="a" fill="var(--color-danger)" name="FBA"/>
             <Bar dataKey="adsPct" stackId="a" fill="#8b5cf6" name="Ads"/>
             <Bar dataKey="storPct" stackId="a" fill="#f97316" name="Storage"/>
             <Bar dataKey="ltsPct" stackId="a" fill="#ec4899" name="Long-term Storage"/>
@@ -689,36 +694,36 @@ function FeeForensics() {
         </ResponsiveContainer>
       </div>
 
-      {/* Storage cost deep dive - it's been spiking */}
-      <div style={{display:"flex",gap:16,flexWrap:"wrap"}}>
-        <div style={{flex:1,minWidth:400,background:"#0f172a",borderRadius:12,padding:20,border:"1px solid #1e293b"}}>
-          <div style={{fontSize:13,fontWeight:700,color:"#94a3b8",marginBottom:4}}>🚨 STORAGE COST ESCALATION</div>
-          <div style={{fontSize:11,color:"#64748b",marginBottom:12}}>Storage + LTS fees have become a major margin drag — tracking by brand</div>
+      {/* Storage cost deep dive */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="chart-container">
+          <div className="chart-title text-danger mb-1">Storage Cost Escalation</div>
+          <div className="text-xs text-tertiary mb-4">Storage + LTS fees have become a major margin drag — tracking by brand</div>
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={DATA.map(d=>({
               period:d.period,
               ...Object.fromEntries(d.brands.map(b=>[b.b,(b.storage||0)+(b.lts||0)]))
             }))}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b"/>
-              <XAxis dataKey="period" tick={{fontSize:9,fill:"#64748b"}} interval={2}/>
-              <YAxis tick={{fontSize:10,fill:"#64748b"}} tickFormatter={v=>`$${(v/1000).toFixed(0)}K`}/>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border-light)"/>
+              <XAxis dataKey="period" tick={{fontSize:9,fill:"var(--text-tertiary)"}} interval={2}/>
+              <YAxis tick={{fontSize:10,fill:"var(--text-tertiary)"}} tickFormatter={v=>`$${(v/1000).toFixed(0)}K`}/>
               <Tooltip content={<CTooltip/>}/>
               {Object.keys(BRAND_COLORS).map(b=><Bar key={b} dataKey={b} stackId="a" fill={BRAND_COLORS[b]}/>)}
             </BarChart>
           </ResponsiveContainer>
         </div>
-        <div style={{flex:1,minWidth:350,background:"#0f172a",borderRadius:12,padding:20,border:"1px solid #1e293b"}}>
-          <div style={{fontSize:13,fontWeight:700,color:"#94a3b8",marginBottom:12}}>FBA FEE RATIO BY BRAND (Latest)</div>
+        <div className="card">
+          <div className="card-title text-secondary mb-4">FBA Fee Ratio by Brand (Latest)</div>
           {DATA[DATA.length-1].brands.map(b=>{
             const fbaRate = b.rev ? (b.fba||0)/b.rev : 0;
             return (
-              <div key={b.b} style={{marginBottom:12}}>
-                <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:4}}>
-                  <span style={{color:BRAND_COLORS[b.b]||"#e2e8f0",fontWeight:600}}>{b.b}</span>
-                  <span style={{fontFamily:"monospace",color:fbaRate>.35?"#ef4444":fbaRate>.28?"#f59e0b":"#22c55e"}}>{fmtPct(fbaRate)}</span>
+              <div key={b.b} className="mb-4">
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="font-semibold" style={{color:BRAND_COLORS[b.b]||"var(--text-primary)"}}>{b.b}</span>
+                  <span className="font-mono" style={{color:fbaRate>.35?"var(--color-danger)":fbaRate>.28?"var(--color-warning)":"var(--color-success)"}}>{fmtPct(fbaRate)}</span>
                 </div>
-                <div style={{height:8,background:"#1e293b",borderRadius:4,overflow:"hidden"}}>
-                  <div style={{width:`${Math.min(fbaRate*100/.5*100,100)}%`,height:"100%",background:fbaRate>.35?"#ef4444":fbaRate>.28?"#f59e0b":"#22c55e",borderRadius:4,transition:"width 0.5s"}}/>
+                <div style={{height:8,background:"var(--neutral-200)",borderRadius:"var(--radius-base)",overflow:"hidden"}}>
+                  <div style={{width:`${Math.min(fbaRate*100/.5*100,100)}%`,height:"100%",background:fbaRate>.35?"var(--color-danger)":fbaRate>.28?"var(--color-warning)":"var(--color-success)",borderRadius:"var(--radius-base)",transition:"width 0.5s"}}/>
                 </div>
               </div>
             );
@@ -729,113 +734,46 @@ function FeeForensics() {
   );
 }
 
-// ── GAPS & RECOMMENDATIONS ────────────────────────────────────────────────
-function GapsReco() {
-  const issues = [
-    {cat:"MISSING METRICS",items:[
-      "TACoS not calculated in current spreadsheet — added here as primary health metric",
-      "No unit economics (Revenue/Unit, Profit/Unit) — now tracked per brand per month",
-      "No organic vs paid revenue split — critical for understanding flywheel health",
-      "No MoM or YoY growth rate calculations — added trend analysis",
-      "No consolidated total ad spend column — SP+SB+SD was never summed",
-      "No fee-as-%-of-revenue breakdown — key for identifying margin compression sources"
-    ]},
-    {cat:"DATA QUALITY ISSUES",items:[
-      "Formula errors (#NAME?, #DIV/0!) present in multiple cells — needs cleanup",
-      "Date format inconsistent between 2024 (MM/DD/YYYYMM/DD/YYYY) and 2025 (MM/DD/YYYY/MM/DD/YYYY)",
-      "Refund rate shows 0.0016 for HoP Nov-24 (0.16%) but actual returns were 1,222 on 11,627 units (10.5%)",
-      "Some adjustment values appear positive when they should reduce costs (sign convention unclear)",
-      "Col AF 'Financial cost differences' has #NAME? errors throughout"
-    ]},
-    {cat:"STRUCTURAL GAPS",items:[
-      "Etsy P&L on separate sheet but never consolidated with Amazon — multi-channel view missing",
-      "Financial Summary sheet (Sheet 3) only covers Apr-May 2024 — abandoned and outdated",
-      "No budget/target column to measure performance against plan",
-      "No YTD running totals",
-      "No trailing 3-month or 6-month averages for smoothing seasonality",
-      "Custom Products & Rockport Tools disappeared after Dec-24 with no notes",
-      "House of Party MISSING entirely from Nov-Dec 2025 — but was tracking at -0.2% margin in Oct-25"
-    ]},
-    {cat:"CRITICAL BUSINESS ALERTS FROM DATA",items:[
-      "House of Party margin collapsed from 16.5% (Aug-24) to -0.2% (Oct-25) then vanished — storage fees ($3.4K-$9.9K/mo) and LTS ($1.9K-$8K/mo) are the primary cause",
-      "Roofus Pet running at -22% to -30% margin — ad spend ($4.2K-$4.4K/mo) on $5.6K-$10K revenue is unsustainable",  
-      "Soul Mama/Luna running at -12% to -14% margin — SP ACoS at 46-52% indicates launch phase but needs guardrails",
-      "Fomin Nov-25 margin dropped to 13.1% from 20%+ average — storage fees spiked to $7.4K (3.2% of revenue vs normal 0.5%)",
-      "Portfolio TACoS spikes to 17-19% in low-revenue months (Nov) — ad spend doesn't scale down with revenue",
-      "Functions Labs Jun-25 margin crashed to 2.4% — needs investigation"
-    ]},
-    {cat:"RECOMMENDED ENHANCEMENTS FOR V2",items:[
-      "Add SKU-level P&L (currently brand-level only) — 80/20 rule means 20% of SKUs drive profits",
-      "Add inventory days-of-supply calculation using units sold velocity",
-      "Add keyword rank tracking tier (Datarova integration) as leading indicator",
-      "Add conversion rate per brand (sessions → orders from Amazon Business Reports)",
-      "Add review rating & count tracking",
-      "Add BSR trending per top ASIN",
-      "Add team member accountability column (who owns each brand)",
-      "Automate LingXing → Google Sheets → Dashboard pipeline with daily refresh"
-    ]}
-  ];
-
-  return (
-    <div>
-      <div style={{fontSize:14,fontWeight:700,color:"#f1f5f9",marginBottom:4}}>P&L AUDIT & ENHANCEMENT ROADMAP</div>
-      <div style={{fontSize:12,color:"#64748b",marginBottom:20}}>Analysis of current spreadsheet gaps, data quality issues, and recommended improvements</div>
-      {issues.map(g=>(
-        <div key={g.cat} style={{background:"#0f172a",borderRadius:12,padding:20,border:"1px solid #1e293b",marginBottom:16}}>
-          <div style={{fontSize:13,fontWeight:700,color:g.cat.includes("ALERT")?"#ef4444":g.cat.includes("MISSING")?"#f59e0b":g.cat.includes("QUALITY")?"#f97316":g.cat.includes("STRUCTURAL")?"#8b5cf6":"#22c55e",marginBottom:12}}>{g.cat}</div>
-          {g.items.map((item,i)=>(
-            <div key={i} style={{padding:"8px 0",borderBottom:i<g.items.length-1?"1px solid #1e293b":"none",fontSize:12,color:"#cbd5e1",lineHeight:1.6}}>
-              <span style={{color:"#64748b",marginRight:8}}>→</span>{item}
-            </div>
-          ))}
-        </div>
-      ))}
-    </div>
-  );
-}
-
 // ── MAIN DASHBOARD ────────────────────────────────────────────────────────
 export default function Dashboard() {
   const [tab, setTab] = useState(0);
 
   return (
-    <div style={{minHeight:"100vh",background:"#020617",color:"#e2e8f0",fontFamily:"'SF Mono','Fira Code','JetBrains Mono',monospace"}}>
+    <div className="dashboard-layout">
       {/* Header */}
-      <div style={{background:"linear-gradient(180deg,#0f172a,#020617)",borderBottom:"1px solid #1e293b",padding:"20px 24px 0"}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+      <div className="dashboard-header">
+        <div className="flex justify-between items-center mb-4">
           <div>
-            <div style={{fontSize:11,textTransform:"uppercase",letterSpacing:3,color:"#64748b",fontWeight:600}}>PETRA BRANDS</div>
-            <div style={{fontSize:20,fontWeight:800,color:"#f1f5f9",marginTop:4}}>Amazon P&L Command Center</div>
+            <div className="text-xs font-semibold text-tertiary tracking-widest uppercase">PETRA BRANDS</div>
+            <div className="heading-3 mt-1">Amazon P&L Command Center</div>
           </div>
-          <div style={{textAlign:"right"}}>
-            <div style={{fontSize:11,color:"#64748b"}}>Data Range</div>
-            <div style={{fontSize:13,fontWeight:600,color:"#94a3b8"}}>May 2024 — Dec 2025</div>
-            <div style={{fontSize:11,color:"#475569"}}>20 months · {DATA.reduce((s,d)=>s+d.brands.length,0)} brand-months</div>
+          <div className="text-right">
+            <div className="text-xs text-tertiary">Data Range</div>
+            <div className="text-sm font-semibold text-secondary">May 2024 — Dec 2025</div>
+            <div className="text-xs text-tertiary">20 months · {DATA.reduce((s,d)=>s+d.brands.length,0)} brand-months</div>
           </div>
         </div>
 
         {/* Tabs */}
-        <div style={{display:"flex",gap:0,overflowX:"auto"}}>
+        <div className="flex gap-0 overflow-x-auto">
           {TABS.map((t,i)=>(
-            <button key={t} onClick={()=>setTab(i)} style={{
-              padding:"10px 20px",fontSize:12,fontWeight:600,cursor:"pointer",border:"none",
-              borderBottom:tab===i?"2px solid #3b82f6":"2px solid transparent",
-              background:"transparent",color:tab===i?"#f1f5f9":"#64748b",
-              transition:"all 0.2s",whiteSpace:"nowrap"
+            <button key={t} onClick={()=>setTab(i)} className={`btn btn-ghost text-sm ${tab===i?"font-bold":"font-medium"}`} style={{
+              borderBottom:tab===i?"2px solid var(--color-primary)":"2px solid transparent",
+              borderRadius:0,
+              color:tab===i?"var(--text-primary)":"var(--text-tertiary)"
             }}>{t}</button>
           ))}
         </div>
       </div>
 
       {/* Content */}
-      <div style={{padding:24,maxWidth:1400,margin:"0 auto"}}>
+      <div className="dashboard-content container">
         {tab===0 && <ExecSummary/>}
         {tab===1 && <Waterfall/>}
         {tab===2 && <BrandDeepDive/>}
         {tab===3 && <AdvertisingIntel/>}
         {tab===4 && <FeeForensics/>}
-        {tab===5 && <GapsReco/>}
-        {tab===6 && <SkuBreakdown/>}
+        {tab===5 && <SkuBreakdown/>}
       </div>
     </div>
   );

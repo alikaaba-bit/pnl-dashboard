@@ -1,0 +1,299 @@
+/* ============================================
+   OVERFLOW & DATA TRUNCATION FIXES
+   Dashboard Overflow Issue Resolution
+   ============================================ */
+
+/* ===== TEXT TRUNCATION UTILITIES ===== */
+
+/* Single-line ellipsis */
+.text-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Multi-line ellipsis (2 lines) */
+.text-ellipsis-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Multi-line ellipsis (3 lines) */
+.text-ellipsis-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Word break utilities */
+.word-break {
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+.word-break-all {
+  word-break: break-all;
+}
+
+/* ===== RESPONSIVE NUMBER SIZING ===== */
+
+/* For very large numbers (>$1M) */
+.number-large {
+  font-size: clamp(1.5rem, 4vw, 2.5rem);
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+}
+
+/* For medium numbers ($10K-$1M) */
+.number-medium {
+  font-size: clamp(1.25rem, 3vw, 1.875rem);
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+}
+
+/* For small numbers (<$10K) */
+.number-small {
+  font-size: clamp(1rem, 2.5vw, 1.5rem);
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Auto-scaling metric values */
+.responsive-metric {
+  font-size: clamp(1.5rem, 4vw, 2rem);
+  line-height: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===== METRIC CARD OVERFLOW FIXES ===== */
+
+/* Ensure all metric cards handle overflow */
+.metric-card {
+  overflow: hidden !important;
+  min-height: 120px;
+}
+
+.metric-card-header {
+  overflow: hidden;
+}
+
+.metric-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.metric-value {
+  font-size: clamp(1.5rem, 4vw, 2.25rem) !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.metric-change {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.metric-trend {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ===== BADGE OVERFLOW FIXES ===== */
+
+.badge {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+.badge-sm {
+  max-width: 150px;
+}
+
+.badge-lg {
+  max-width: 250px;
+}
+
+/* Allow multiple badges to wrap */
+.badge-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  overflow: hidden;
+}
+
+/* ===== TABLE OVERFLOW FIXES ===== */
+
+/* Table container with horizontal scroll */
+.table-container {
+  overflow: hidden;
+  overflow-x: auto;
+}
+
+/* Table header cells */
+.table th {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 300px;
+}
+
+/* Table data cells */
+.table td {
+  max-width: 400px;
+  overflow: hidden;
+}
+
+/* Numeric columns should not wrap */
+.table-numeric {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Product name column with proper overflow */
+.table-product-name {
+  max-width: 350px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Allow tooltips with title attribute */
+.table-product-name[title] {
+  cursor: help;
+}
+
+/* SKU column */
+.table-sku {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.8125rem;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ===== CARD OVERFLOW FIXES ===== */
+
+.card {
+  overflow: hidden;
+}
+
+.card-header {
+  overflow: hidden;
+}
+
+.card-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-subtitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-body {
+  overflow: hidden;
+}
+
+.card-footer {
+  overflow: hidden;
+}
+
+/* ===== CHART CONTAINER FIXES ===== */
+
+.chart-container {
+  overflow: hidden;
+}
+
+.chart-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ===== RESPONSIVE ADJUSTMENTS ===== */
+
+/* Mobile: Smaller font sizes for numbers */
+@media (max-width: 640px) {
+  .metric-value {
+    font-size: clamp(1.25rem, 6vw, 1.875rem) !important;
+  }
+
+  .number-large {
+    font-size: clamp(1.25rem, 5vw, 2rem);
+  }
+
+  .number-medium {
+    font-size: clamp(1rem, 4vw, 1.5rem);
+  }
+
+  .number-small {
+    font-size: clamp(0.875rem, 3vw, 1.25rem);
+  }
+
+  .table-product-name {
+    max-width: 200px;
+  }
+
+  .badge {
+    max-width: 150px;
+  }
+}
+
+/* Tablet: Medium adjustments */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .table-product-name {
+    max-width: 280px;
+  }
+}
+
+/* ===== UTILITY HELPERS ===== */
+
+/* Truncate with tooltip on hover */
+.truncate-with-tooltip {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: help;
+}
+
+/* Flex container that prevents overflow */
+.flex-no-overflow {
+  display: flex;
+  min-width: 0;
+}
+
+.flex-no-overflow > * {
+  min-width: 0;
+}
+
+/* Grid container that prevents overflow */
+.grid-no-overflow {
+  display: grid;
+  min-width: 0;
+}
+
+.grid-no-overflow > * {
+  min-width: 0;
+}

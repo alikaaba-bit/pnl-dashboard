@@ -240,22 +240,6 @@ async function backfill() {
         console.error(`  ❌ Error fetching ${startDateStr}: ${error.message}`);
       }
     }
-
-    // Save progress after each year to avoid memory issues
-    console.log(`\n💾 Saving progress for ${year}...`);
-    const progressArray = formatSkuData(skuData);
-    fs.writeFileSync(CONFIG.OUTPUT_PATH, JSON.stringify(progressArray, null, 2));
-    const progressMeta = {
-      lastUpdated: new Date().toISOString(),
-      lastFetchDate: endDate.toISOString().split('T')[0],
-      skuCount: progressArray.length,
-      totalRevenue: progressArray.reduce((sum, s) => sum + s.revenue, 0),
-      totalUnits: progressArray.reduce((sum, s) => sum + s.units, 0),
-      mode: 'backfill',
-      progress: `${year}/${currentYear}`
-    };
-    fs.writeFileSync(CONFIG.META_PATH, JSON.stringify(progressMeta, null, 2));
-    console.log(`   ✓ Saved ${progressArray.length} SKUs - ${progressMeta.totalRevenue.toLocaleString()}`);
   }
 
   const skuArray = formatSkuData(skuData);

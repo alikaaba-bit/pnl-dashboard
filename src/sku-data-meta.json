@@ -1,9 +1,9 @@
 {
-  "lastUpdated": "2026-02-06T03:50:15.201Z",
+  "lastUpdated": "2026-02-06T05:39:39.744Z",
   "lastFetchDate": "2026-02-06",
-  "skuCount": 1167,
-  "totalRevenue": 2474765.1900000228,
-  "totalUnits": 160738,
+  "skuCount": 3207,
+  "totalRevenue": 20674290.78999968,
+  "totalUnits": 951812,
   "mode": "backfill",
   "dateRange": {
     "start": "2023-01-01",

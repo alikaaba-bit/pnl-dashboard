@@ -1,0 +1,649 @@
+import React, { useState, useMemo } from "react";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from "recharts";
+
+/**
+ * SKU-Level Breakdown Component
+ * Shows product-level performance from Daily_MSKU sheet data
+ */
+
+// Import enriched SKU data from JSON file
+import skuDataJson from "./sku-data-enriched.json";
+
+function SkuBreakdown({ skuData = skuDataJson }) {
+  const [sortBy, setSortBy] = useState("revenue");
+  const [filterBrand, setFilterBrand] = useState("all");
+  const [filterTheme, setFilterTheme] = useState("all");
+  const [filterSeasonality, setFilterSeasonality] = useState("all");
+  const [filterYear, setFilterYear] = useState("all");
+  const [filterMonth, setFilterMonth] = useState("all");
+  const [showOnlyNamed, setShowOnlyNamed] = useState(true); // Hide SKUs without real names by default
+  const [searchTerm, setSearchTerm] = useState("");
+  const [expandedRow, setExpandedRow] = useState(null);
+
+  // Get unique brands, themes, and seasonality options
+  const brands = useMemo(() => {
+    const brandSet = new Set(skuData.map(s => s.brand));
+    return ["all", ...Array.from(brandSet).sort()];
+  }, [skuData]);
+
+  const themes = useMemo(() => {
+    const themeSet = new Set(skuData.map(s => s.theme).filter(Boolean));
+    return ["all", ...Array.from(themeSet).sort()];
+  }, [skuData]);
+
+  const seasonalities = useMemo(() => {
+    return ["all", "Q1", "Q2", "Q3", "Q4", "Year-Round"];
+  }, []);
+
+  // Get unique years and months from historical data
+  const years = useMemo(() => {
+    const yearSet = new Set();
+    skuData.forEach(s => {
+      if (s.firstSale) {
+        const year = new Date(s.firstSale).getFullYear();
+        yearSet.add(year);
+      }
+      if (s.lastSale) {
+        const year = new Date(s.lastSale).getFullYear();
+        yearSet.add(year);
+      }
+    });
+    return ["all", ...Array.from(yearSet).sort()];
+  }, [skuData]);
+
+  const months = [
+    "all", "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ];
+
+  // Filter and sort data
+  const filteredData = useMemo(() => {
+    let data = skuData;
+
+    // Filter by brand
+    if (filterBrand !== "all") {
+      data = data.filter(s => s.brand === filterBrand);
+    }
+
+    // Filter by theme
+    if (filterTheme !== "all") {
+      data = data.filter(s => s.theme === filterTheme);
+    }
+
+    // Filter by seasonality
+    if (filterSeasonality !== "all") {
+      data = data.filter(s => s.seasonality === filterSeasonality);
+    }
+
+    // Filter by year (products active in that year)
+    if (filterYear !== "all") {
+      const year = parseInt(filterYear);
+      data = data.filter(s => {
+        if (!s.firstSale && !s.lastSale) return false;
+        const firstYear = s.firstSale ? new Date(s.firstSale).getFullYear() : year;
+        const lastYear = s.lastSale ? new Date(s.lastSale).getFullYear() : year;
+        return year >= firstYear && year <= lastYear;
+      });
+    }
+
+    // Filter by peak month
+    if (filterMonth !== "all") {
+      data = data.filter(s => s.peakMonth === filterMonth);
+    }
+
+    // Filter to show only products with real names (not just SKU codes)
+    if (showOnlyNamed) {
+      data = data.filter(s => {
+        const name = s.productName || s.product || '';
+        // Has a real name if it's different from SKU and longer than SKU
+        return name && name !== s.sku && name.length > s.sku.length;
+      });
+    }
+
+    // Filter by search term
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      data = data.filter(s =>
+        s.sku.toLowerCase().includes(term) ||
+        (s.product && s.product.toLowerCase().includes(term)) ||
+        (s.productName && s.productName.toLowerCase().includes(term)) ||
+        (s.title && s.title.toLowerCase().includes(term))
+      );
+    }
+
+    // Sort
+    data = [...data].sort((a, b) => {
+      const aVal = a[sortBy] || 0;
+      const bVal = b[sortBy] || 0;
+      return bVal - aVal;
+    });
+
+    return data;
+  }, [skuData, sortBy, filterBrand, filterTheme, filterSeasonality, filterYear, filterMonth, showOnlyNamed, searchTerm]);
+
+  // Top 10 for chart - add display names
+  const top10 = filteredData.slice(0, 10).map(sku => ({
+    ...sku,
+    displayName: (sku.productName && sku.productName !== sku.sku)
+      ? sku.productName.substring(0, 30) + (sku.productName.length > 30 ? '...' : '')
+      : `Product ${sku.sku.substring(0, 15)}`
+  }));
+
+  // Calculate totals
+  const totals = useMemo(() => {
+    return filteredData.reduce((acc, s) => ({
+      revenue: acc.revenue + s.revenue,
+      units: acc.units + s.units,
+      adSpend: acc.adSpend + s.adSpend,
+      grossProfit: acc.grossProfit + s.grossProfit
+    }), { revenue: 0, units: 0, adSpend: 0, grossProfit: 0 });
+  }, [filteredData]);
+
+  const avgMargin = totals.revenue > 0 ? (totals.grossProfit / totals.revenue * 100).toFixed(1) : 0;
+  const avgAcos = totals.adSales > 0 ? (totals.adSpend / totals.adSales * 100).toFixed(1) : 0;
+
+  return (
+    <div style={{ padding: "20px", maxWidth: "1400px", margin: "0 auto" }}>
+      <h1 style={{ fontSize: "24px", marginBottom: "20px" }}>📦 SKU-Level Breakdown</h1>
+
+      {/* Summary Cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "15px", marginBottom: "30px" }}>
+        <div style={{ background: "#f8f9fa", padding: "15px", borderRadius: "8px", border: "1px solid #dee2e6" }}>
+          <div style={{ fontSize: "12px", color: "#6c757d", marginBottom: "5px" }}>Total SKUs</div>
+          <div style={{ fontSize: "24px", fontWeight: "bold" }}>{filteredData.length}</div>
+        </div>
+        <div style={{ background: "#f8f9fa", padding: "15px", borderRadius: "8px", border: "1px solid #dee2e6" }}>
+          <div style={{ fontSize: "12px", color: "#6c757d", marginBottom: "5px" }}>Total Revenue</div>
+          <div style={{ fontSize: "24px", fontWeight: "bold" }}>${totals.revenue.toLocaleString()}</div>
+        </div>
+        <div style={{ background: "#f8f9fa", padding: "15px", borderRadius: "8px", border: "1px solid #dee2e6" }}>
+          <div style={{ fontSize: "12px", color: "#6c757d", marginBottom: "5px" }}>Total Units</div>
+          <div style={{ fontSize: "24px", fontWeight: "bold" }}>{totals.units.toLocaleString()}</div>
+        </div>
+        <div style={{ background: "#f8f9fa", padding: "15px", borderRadius: "8px", border: "1px solid #dee2e6" }}>
+          <div style={{ fontSize: "12px", color: "#6c757d", marginBottom: "5px" }}>Avg Margin</div>
+          <div style={{ fontSize: "24px", fontWeight: "bold" }}>{avgMargin}%</div>
+        </div>
+        <div style={{ background: "#f8f9fa", padding: "15px", borderRadius: "8px", border: "1px solid #dee2e6" }}>
+          <div style={{ fontSize: "12px", color: "#6c757d", marginBottom: "5px" }}>Ad Spend</div>
+          <div style={{ fontSize: "24px", fontWeight: "bold" }}>${totals.adSpend.toLocaleString()}</div>
+        </div>
+      </div>
+
+      {/* Filters - Row 1 */}
+      <div style={{ display: "flex", gap: "15px", marginBottom: "10px", flexWrap: "wrap" }}>
+        <input
+          type="text"
+          placeholder="Search SKU or product..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          style={{
+            padding: "8px 12px",
+            border: "1px solid #dee2e6",
+            borderRadius: "4px",
+            flex: "1",
+            minWidth: "250px"
+          }}
+        />
+        <select
+          value={filterBrand}
+          onChange={(e) => setFilterBrand(e.target.value)}
+          style={{ padding: "8px 12px", border: "1px solid #dee2e6", borderRadius: "4px", minWidth: "150px" }}
+        >
+          {brands.map(b => (
+            <option key={b} value={b}>{b === "all" ? "All Brands" : b}</option>
+          ))}
+        </select>
+        <select
+          value={filterTheme}
+          onChange={(e) => setFilterTheme(e.target.value)}
+          style={{ padding: "8px 12px", border: "1px solid #dee2e6", borderRadius: "4px", minWidth: "150px" }}
+        >
+          {themes.map(t => (
+            <option key={t} value={t}>{t === "all" ? "All Themes" : t}</option>
+          ))}
+        </select>
+        <select
+          value={filterSeasonality}
+          onChange={(e) => setFilterSeasonality(e.target.value)}
+          style={{ padding: "8px 12px", border: "1px solid #dee2e6", borderRadius: "4px", minWidth: "150px" }}
+        >
+          {seasonalities.map(s => (
+            <option key={s} value={s}>{s === "all" ? "All Seasons" : s}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Filters - Row 2: Time-based filters & options */}
+      <div style={{ display: "flex", gap: "15px", marginBottom: "20px", flexWrap: "wrap", alignItems: "center" }}>
+        <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+          <span style={{ fontSize: "14px", color: "#6c757d", fontWeight: "500" }}>📅 Time Filters:</span>
+          <select
+            value={filterYear}
+            onChange={(e) => setFilterYear(e.target.value)}
+            style={{ padding: "8px 12px", border: "1px solid #dee2e6", borderRadius: "4px", minWidth: "120px" }}
+          >
+            {years.map(y => (
+              <option key={y} value={y}>{y === "all" ? "All Years" : y}</option>
+            ))}
+          </select>
+          <select
+            value={filterMonth}
+            onChange={(e) => setFilterMonth(e.target.value)}
+            style={{ padding: "8px 12px", border: "1px solid #dee2e6", borderRadius: "4px", minWidth: "140px" }}
+          >
+            {months.map(m => (
+              <option key={m} value={m}>{m === "all" ? "All Peak Months" : m}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Toggle for products with/without names */}
+        <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "14px", color: "#495057" }}>
+          <input
+            type="checkbox"
+            checked={showOnlyNamed}
+            onChange={(e) => setShowOnlyNamed(e.target.checked)}
+            style={{ cursor: "pointer" }}
+          />
+          <span>Only show products with names ({skuData.filter(s => {
+            const name = s.productName || s.product || '';
+            return name && name !== s.sku && name.length > s.sku.length;
+          }).length.toLocaleString()} products)</span>
+        </label>
+
+        <div style={{ marginLeft: "auto", display: "flex", gap: "10px", alignItems: "center" }}>
+          <span style={{ fontSize: "14px", color: "#6c757d", fontWeight: "500" }}>Sort:</span>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            style={{ padding: "8px 12px", border: "1px solid #dee2e6", borderRadius: "4px", minWidth: "150px" }}
+          >
+            <option value="revenue">Revenue</option>
+            <option value="units">Units</option>
+            <option value="grossProfit">Profit</option>
+            <option value="margin">Margin %</option>
+            <option value="acos">ACoS</option>
+            <option value="historicalRevenue">Historical Revenue</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Top 10 Chart */}
+      <div style={{ background: "white", padding: "20px", borderRadius: "8px", marginBottom: "30px", border: "1px solid #dee2e6" }}>
+        <h2 style={{ fontSize: "18px", marginBottom: "15px" }}>Top 10 Products by {sortBy.charAt(0).toUpperCase() + sortBy.slice(1)}</h2>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={top10}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+            <XAxis
+              dataKey="displayName"
+              angle={-45}
+              textAnchor="end"
+              height={100}
+              style={{ fontSize: "11px" }}
+            />
+            <YAxis />
+            <Tooltip
+              contentStyle={{ background: "white", border: "1px solid #ccc" }}
+              formatter={(value) => sortBy === "margin" || sortBy === "acos" ? `${value}%` : `$${value.toLocaleString()}`}
+              labelFormatter={(label) => `Product: ${label}`}
+            />
+            <Bar dataKey={sortBy} fill="#0066cc">
+              {top10.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={index < 3 ? "#00cc66" : "#0066cc"} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* SKU Table */}
+      <div style={{ background: "white", borderRadius: "8px", border: "1px solid #dee2e6", overflow: "hidden" }}>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}>
+            <thead>
+              <tr style={{ background: "#f8f9fa", borderBottom: "2px solid #dee2e6" }}>
+                <th style={{ padding: "12px", textAlign: "left", fontWeight: "600", width: "30px" }}></th>
+                <th style={{ padding: "12px", textAlign: "left", fontWeight: "600", borderRight: "2px solid #dee2e6" }}>
+                  <div>Product Info</div>
+                  <div style={{ fontSize: "11px", fontWeight: "normal", color: "#6c757d" }}>SKU / Name / Category</div>
+                </th>
+                <th style={{ padding: "12px", textAlign: "right", fontWeight: "600", borderRight: "2px solid #dee2e6" }}>
+                  <div>Performance</div>
+                  <div style={{ fontSize: "11px", fontWeight: "normal", color: "#6c757d" }}>Units / Revenue</div>
+                </th>
+                <th style={{ padding: "12px", textAlign: "right", fontWeight: "600", borderRight: "2px solid #dee2e6" }}>
+                  <div>Costs</div>
+                  <div style={{ fontSize: "11px", fontWeight: "normal", color: "#6c757d" }}>COGS / FBA / Ads</div>
+                </th>
+                <th style={{ padding: "12px", textAlign: "right", fontWeight: "600" }}>
+                  <div>Profitability</div>
+                  <div style={{ fontSize: "11px", fontWeight: "normal", color: "#6c757d" }}>Profit / Margin</div>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredData.slice(0, 50).map((sku, idx) => {
+                const isExpanded = expandedRow === idx;
+                const rawName = sku.productName || sku.product || '';
+                const hasRealName = rawName && rawName !== sku.sku && rawName.length > sku.sku.length;
+                const displayName = hasRealName ? rawName : null;
+
+                return (
+                  <React.Fragment key={idx}>
+                    <tr
+                      style={{
+                        borderBottom: isExpanded ? "none" : "1px solid #dee2e6",
+                        background: idx % 2 === 0 ? "white" : "#f8f9fa",
+                        cursor: "pointer"
+                      }}
+                      onClick={() => setExpandedRow(isExpanded ? null : idx)}
+                    >
+                      <td style={{ padding: "12px", textAlign: "center" }}>
+                        <span style={{ fontSize: "12px", color: "#6c757d" }}>
+                          {isExpanded ? "▼" : "▶"}
+                        </span>
+                      </td>
+                      <td style={{ padding: "12px", borderRight: "2px solid #dee2e6" }}>
+                        {displayName ? (
+                          <>
+                            {/* Product Name (most prominent) */}
+                            <div style={{
+                              fontWeight: "600",
+                              fontSize: "14px",
+                              marginBottom: "6px",
+                              maxWidth: "350px",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                              color: "#212529"
+                            }}>
+                              {displayName}
+                            </div>
+
+                            {/* SKU (secondary) */}
+                            <div style={{ fontFamily: "monospace", fontSize: "11px", color: "#6c757d", marginBottom: "4px" }}>
+                              SKU: {sku.sku}
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            {/* No real name - show SKU prominently with warning */}
+                            <div style={{
+                              fontWeight: "600",
+                              fontSize: "14px",
+                              marginBottom: "6px",
+                              color: "#212529"
+                            }}>
+                              <span style={{ fontFamily: "monospace" }}>SKU: {sku.sku}</span>
+                            </div>
+                            <div style={{
+                              fontSize: "11px",
+                              color: "#dc3545",
+                              marginBottom: "4px",
+                              padding: "2px 6px",
+                              background: "#fff3cd",
+                              borderRadius: "4px",
+                              display: "inline-block"
+                            }}>
+                              ⚠️ Product name not available
+                            </div>
+                          </>
+                        )}
+
+                        {/* Brand & Badges */}
+                        <div style={{ fontSize: "12px", color: "#6c757d", display: "flex", flexWrap: "wrap", gap: "6px", alignItems: "center" }}>
+                          {sku.brand && sku.brand !== "Unknown" && (
+                            <span style={{
+                              padding: "2px 8px",
+                              background: "#f8f9fa",
+                              borderRadius: "4px",
+                              fontSize: "11px",
+                              fontWeight: "500",
+                              border: "1px solid #dee2e6"
+                            }}>
+                              {sku.brand}
+                            </span>
+                          )}
+                          {sku.theme && sku.theme !== "GENERAL" && (
+                            <span style={{
+                              padding: "2px 8px",
+                              background: "#e7f3ff",
+                              borderRadius: "4px",
+                              fontSize: "11px",
+                              fontWeight: "500",
+                              border: "1px solid #b8daff"
+                            }}>
+                              🎨 {sku.theme}
+                            </span>
+                          )}
+                          {sku.seasonalityBadge && sku.seasonality !== "Year-Round" && (
+                            <span style={{
+                              padding: "2px 8px",
+                              background: "#fff3cd",
+                              borderRadius: "4px",
+                              fontSize: "11px",
+                              fontWeight: "500",
+                              border: "1px solid #ffc107"
+                            }}>
+                              {sku.seasonalityBadge} {sku.seasonality}
+                            </span>
+                          )}
+                          {sku.category && (
+                            <span style={{ fontSize: "11px", color: "#868e96" }}>
+                              📁 {sku.category}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td style={{ padding: "12px", textAlign: "right", borderRight: "2px solid #dee2e6" }}>
+                        <div style={{ fontWeight: "600", marginBottom: "4px" }}>
+                          {(sku.units || 0).toLocaleString()} units
+                        </div>
+                        <div style={{ color: "#28a745", fontWeight: "600" }}>
+                          ${(sku.revenue || 0).toLocaleString()}
+                        </div>
+                        {sku.historicalRevenue > 0 && (
+                          <div style={{ fontSize: "11px", color: "#6c757d", marginTop: "2px" }}>
+                            Historical: ${(sku.historicalRevenue || 0).toLocaleString()}
+                          </div>
+                        )}
+                      </td>
+                      <td style={{ padding: "12px", textAlign: "right", borderRight: "2px solid #dee2e6" }}>
+                        <div style={{ fontSize: "12px", marginBottom: "2px" }}>
+                          COGS: ${(sku.cogs || 0).toLocaleString()}
+                        </div>
+                        <div style={{ fontSize: "12px", marginBottom: "2px" }}>
+                          FBA: ${(sku.fbaFee || 0).toLocaleString()}
+                        </div>
+                        <div style={{ fontSize: "12px" }}>
+                          Ads: ${(sku.adSpend || 0).toLocaleString()}
+                          {sku.acos > 0 && (
+                            <span style={{ color: sku.acos > 30 ? "#dc3545" : "#28a745", marginLeft: "4px" }}>
+                              ({sku.acos}%)
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td style={{ padding: "12px", textAlign: "right" }}>
+                        <div style={{ fontWeight: "600", marginBottom: "4px", fontSize: "16px" }}>
+                          ${(sku.grossProfit || 0).toLocaleString()}
+                        </div>
+                        <div style={{
+                          color: (sku.margin || 0) > 25 ? "#28a745" : (sku.margin || 0) > 15 ? "#ffc107" : "#dc3545",
+                          fontWeight: "600"
+                        }}>
+                          {(sku.margin || 0)}% margin
+                        </div>
+                      </td>
+                    </tr>
+                    {isExpanded && (
+                      <tr style={{ borderBottom: "1px solid #dee2e6", background: idx % 2 === 0 ? "#f8f9fa" : "white" }}>
+                        <td colSpan="5" style={{ padding: "20px" }}>
+                          <CostBreakdown sku={sku} />
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        {filteredData.length > 50 && (
+          <div style={{ padding: "15px", textAlign: "center", background: "#f8f9fa", color: "#6c757d", fontSize: "14px" }}>
+            Showing top 50 of {filteredData.length} SKUs
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Cost Breakdown Component
+ * Shows waterfall chart of costs from revenue to net profit
+ */
+function CostBreakdown({ sku }) {
+  const revenue = sku.revenue || 0;
+  const cogs = sku.cogs || 0;
+  const fbaFee = sku.fbaFee || 0;
+  const adSpend = sku.adSpend || 0;
+  const storage = sku.storage || 0;
+  const refunds = sku.refunds || 0;
+  const grossProfit = sku.grossProfit || 0;
+
+  // Calculate cumulative values for waterfall
+  const afterCogs = revenue - cogs;
+  const afterFba = afterCogs - fbaFee;
+  const afterAds = afterFba - adSpend;
+  const afterStorage = afterAds - storage;
+  const netProfit = afterStorage - refunds;
+
+  const waterfallData = [
+    { name: "Revenue", value: revenue, color: "#28a745", cumulative: revenue },
+    { name: "- COGS", value: -cogs, color: "#dc3545", cumulative: afterCogs },
+    { name: "- FBA Fee", value: -fbaFee, color: "#dc3545", cumulative: afterFba },
+    { name: "- Ad Spend", value: -adSpend, color: "#dc3545", cumulative: afterAds },
+    { name: "- Storage", value: -storage, color: "#dc3545", cumulative: afterStorage },
+    { name: "- Refunds", value: -refunds, color: "#dc3545", cumulative: netProfit },
+    { name: "Net Profit", value: netProfit, color: netProfit > 0 ? "#0066cc" : "#dc3545", cumulative: netProfit },
+  ];
+
+  // Cost breakdown percentages
+  const costBreakdown = [
+    { label: "COGS", amount: cogs, percent: revenue > 0 ? ((cogs / revenue) * 100).toFixed(1) : 0, color: "#ff6b6b" },
+    { label: "FBA Fee", amount: fbaFee, percent: revenue > 0 ? ((fbaFee / revenue) * 100).toFixed(1) : 0, color: "#4ecdc4" },
+    { label: "Ad Spend", amount: adSpend, percent: revenue > 0 ? ((adSpend / revenue) * 100).toFixed(1) : 0, color: "#45b7d1" },
+    { label: "Storage", amount: storage, percent: revenue > 0 ? ((storage / revenue) * 100).toFixed(1) : 0, color: "#96ceb4" },
+    { label: "Refunds", amount: refunds, percent: revenue > 0 ? ((refunds / revenue) * 100).toFixed(1) : 0, color: "#dda15e" },
+    { label: "Net Profit", amount: netProfit, percent: revenue > 0 ? ((netProfit / revenue) * 100).toFixed(1) : 0, color: netProfit > 0 ? "#0066cc" : "#dc3545" },
+  ];
+
+  return (
+    <div style={{ padding: "10px" }}>
+      <h3 style={{ fontSize: "16px", marginBottom: "15px", color: "#495057" }}>💰 Cost Breakdown & Profitability Analysis</h3>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "30px" }}>
+        {/* Waterfall Chart */}
+        <div>
+          <h4 style={{ fontSize: "14px", marginBottom: "10px", color: "#6c757d" }}>Revenue to Net Profit Waterfall</h4>
+          <ResponsiveContainer width="100%" height={250}>
+            <BarChart data={waterfallData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+              <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} style={{ fontSize: "12px" }} />
+              <YAxis style={{ fontSize: "12px" }} />
+              <Tooltip
+                contentStyle={{ background: "white", border: "1px solid #ccc", borderRadius: "4px" }}
+                formatter={(value) => `$${Math.abs(value).toLocaleString()}`}
+              />
+              <Bar dataKey="cumulative" radius={[4, 4, 0, 0]}>
+                {waterfallData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Cost Breakdown Table */}
+        <div>
+          <h4 style={{ fontSize: "14px", marginBottom: "10px", color: "#6c757d" }}>Cost Component Breakdown</h4>
+          <div style={{ background: "#f8f9fa", borderRadius: "8px", padding: "15px" }}>
+            {costBreakdown.map((item, idx) => (
+              <div key={idx} style={{ marginBottom: idx === costBreakdown.length - 1 ? "0" : "12px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
+                  <span style={{ fontSize: "13px", fontWeight: idx === costBreakdown.length - 1 ? "600" : "normal" }}>
+                    {item.label}
+                  </span>
+                  <span style={{ fontSize: "13px", fontWeight: "600" }}>
+                    ${item.amount.toLocaleString()} ({item.percent}%)
+                  </span>
+                </div>
+                <div style={{ background: "#dee2e6", height: "8px", borderRadius: "4px", overflow: "hidden" }}>
+                  <div
+                    style={{
+                      width: `${item.percent}%`,
+                      height: "100%",
+                      background: item.color,
+                      transition: "width 0.3s ease"
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Additional Metrics */}
+          {sku.firstSale && (
+            <div style={{ marginTop: "15px", padding: "10px", background: "#e7f3ff", borderRadius: "6px" }}>
+              <div style={{ fontSize: "12px", color: "#495057", marginBottom: "4px" }}>
+                📅 <strong>Product Lifecycle:</strong>
+              </div>
+              <div style={{ fontSize: "11px", color: "#6c757d" }}>
+                First Sale: {sku.firstSale} • Last Sale: {sku.lastSale || 'N/A'}
+              </div>
+              {sku.peakMonth && (
+                <div style={{ fontSize: "11px", color: "#6c757d" }}>
+                  Peak Month: {sku.peakMonth} • Avg Daily Sales: {sku.avgDailySales || 0} units
+                </div>
+              )}
+              {sku.category && (
+                <div style={{ fontSize: "11px", color: "#6c757d", marginTop: "4px" }}>
+                  Category: {sku.category} {sku.subcategory && `> ${sku.subcategory}`}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Profitability Matrix Classification */}
+      <div style={{ marginTop: "15px", padding: "12px", background: "#fff3cd", borderRadius: "6px" }}>
+        <strong style={{ fontSize: "13px" }}>
+          {getProfitabilityClassification(sku.units, sku.margin)}
+        </strong>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Classify product into profitability matrix
+ */
+function getProfitabilityClassification(units, margin) {
+  const highVolume = units > 1000;
+  const highMargin = margin > 25;
+
+  if (highVolume && highMargin) {
+    return "⭐ Star Product - High margin, high volume. Keep investing!";
+  } else if (!highVolume && highMargin) {
+    return "❓ Question Mark - High margin, low volume. Consider increasing marketing.";
+  } else if (highVolume && !highMargin) {
+    return "🐄 Cash Cow - Low margin, high volume. Optimize costs or pricing.";
+  } else {
+    return "🐕 Dog Product - Low margin, low volume. Consider discontinuing or repositioning.";
+  }
+}
+
+export default SkuBreakdown;
