@@ -79,22 +79,49 @@ async function getAccessToken() {
 async function fetchSkuDataForDateRange(token, startDate, endDate) {
   console.log(`  Fetching SKU data: ${startDate} to ${endDate}`);
 
-  // Use MSKU endpoint for product-level data
-  const params = { startDate, endDate, offset: 0, length: 5000 };
-  const ts = Math.floor(Date.now() / 1000).toString();
-  const authParams = { access_token: token, app_key: CONFIG.APP_ID, timestamp: ts };
-  authParams.sign = generateApiSign({ ...authParams, ...params });
+  let allRecords = [];
+  let offset = 0;
+  const batchSize = 1000; // Fetch 1000 at a time
+  let hasMore = true;
 
-  const response = await axios.post(
-    CONFIG.BASE_URL + '/bd/profit/report/open/report/msku/list',  // Changed from seller to msku
-    params,
-    { params: authParams }
-  );
+  // Keep fetching until no more records
+  while (hasMore) {
+    const params = { startDate, endDate, offset, length: batchSize };
+    const ts = Math.floor(Date.now() / 1000).toString();
+    const authParams = { access_token: token, app_key: CONFIG.APP_ID, timestamp: ts };
+    authParams.sign = generateApiSign({ ...authParams, ...params });
 
-  const records = response.data.data.records || response.data.data.list || [];
-  console.log(`  ✓ Fetched ${records.length} SKU records`);
+    try {
+      const response = await axios.post(
+        CONFIG.BASE_URL + '/bd/profit/report/open/report/msku/list',
+        params,
+        { params: authParams }
+      );
 
-  return records;
+      const records = response.data.data.records || response.data.data.list || [];
+
+      if (records.length === 0) {
+        hasMore = false;
+      } else {
+        allRecords = allRecords.concat(records);
+        offset += batchSize;
+
+        // If we got less than batchSize, we're done
+        if (records.length < batchSize) {
+          hasMore = false;
+        }
+
+        // Small delay to avoid rate limits
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+    } catch (error) {
+      console.error(`  ⚠️ Error at offset ${offset}: ${error.message}`);
+      hasMore = false;
+    }
+  }
+
+  console.log(`  ✓ Fetched ${allRecords.length} SKU records (${Math.ceil(allRecords.length / batchSize)} batches)`);
+  return allRecords;
 }
 
 function processRecords(records, existingSkuData = {}) {
