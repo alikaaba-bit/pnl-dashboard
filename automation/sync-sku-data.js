@@ -73,6 +73,9 @@ async function getAccessToken() {
     { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
   );
 
+  if (!response.data?.data?.access_token) {
+    throw new Error('Failed to get access token: ' + JSON.stringify(response.data));
+  }
   return response.data.data.access_token;
 }
 
@@ -98,7 +101,7 @@ async function fetchSkuDataForDateRange(token, startDate, endDate) {
         { params: authParams }
       );
 
-      const records = response.data.data.records || response.data.data.list || [];
+      const records = response.data.data?.records || response.data.data?.list || [];
 
       if (records.length === 0) {
         hasMore = false;
