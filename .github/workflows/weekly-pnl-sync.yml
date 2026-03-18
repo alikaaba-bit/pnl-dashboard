@@ -1,0 +1,91 @@
+name: Weekly P&L Sync from Lingxing
+
+on:
+  schedule:
+    # Every Monday at 6 AM UTC
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+    inputs:
+      month:
+        description: 'Month to sync (1-12), or "current"'
+        required: false
+        default: 'current'
+      year:
+        description: 'Year (e.g. 2026), ignored if month is "current"'
+        required: false
+        default: ''
+      debug:
+        description: 'Enable debug logging'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  sync-pnl:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: |
+          cd automation
+          npm init -y 2>/dev/null
+          npm install axios crypto-js
+
+      - name: Sync P&L data from Lingxing
+        env:
+          LINGXING_APP_ID: ${{ secrets.LINGXING_APP_ID }}
+          LINGXING_APP_SECRET: ${{ secrets.LINGXING_APP_SECRET }}
+        run: |
+          MONTH="${{ github.event.inputs.month || 'current' }}"
+          YEAR="${{ github.event.inputs.year }}"
+          DEBUG_FLAG=""
+          if [ "${{ github.event.inputs.debug }}" = "true" ]; then
+            DEBUG_FLAG="--debug"
+          fi
+
+          if [ "$MONTH" = "current" ]; then
+            node automation/sync-monthly-pnl.js current $DEBUG_FLAG
+          else
+            node automation/sync-monthly-pnl.js "$YEAR" "$MONTH" $DEBUG_FLAG
+          fi
+
+      - name: Commit updated P&L data
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git
+          git add src/pnl-data.json
+          git diff --staged --quiet || git commit -m "sync: update P&L data from Lingxing - $(date +'%Y-%m-%d')"
+          git push
+
+      - name: Build and deploy to GitHub Pages
+        if: success()
+        run: |
+          npm install
+          npm run build
+          npx gh-pages -d build
+
+      - name: Log completion
+        run: |
+          echo "P&L sync completed at $(date)"
+          echo "--- Data summary ---"
+          node -e "
+            const d = require('./src/pnl-data.json');
+            const last = d[d.length-1];
+            console.log('Latest month:', last.period);
+            console.log('Brands:', last.brands.length);
+            last.brands.forEach(b => console.log('  ' + b.b + ': Rev $' + b.rev.toLocaleString() + ', GP $' + b.gp.toLocaleString()));
+          "
